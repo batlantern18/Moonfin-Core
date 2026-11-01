@@ -1,0 +1,11 @@
+<resources>
+    <!-- Splashscreen style shown briefly while the Flutter engine loads
+         (a dark theme suits TV). -->
+    <style name="LaunchTheme" parent="@android:style/Theme.Black.NoTitleBar">
+        <item name="android:windowBackground">@drawable/launch_background</item>
+    </style>
+    <!-- Normal theme applied after the engine has started. -->
+    <style name="NormalTheme" parent="@android:style/Theme.Black.NoTitleBar">
+        <item name="android:windowBackground">?android:colorBackground</item>
+    </style>
+</resources>
