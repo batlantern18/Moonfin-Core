@@ -48,17 +48,43 @@ with `adb install -r build/app/outputs/flutter-apk/app-release.apk`.
 
 ## Current status
 
-The project currently contains only a **placeholder home screen**: a
-D-pad-navigable grid of tiles that opens a demo dialog on select, proving that
-the project structure, analysis setup and build pipeline work end to end. The
-focus infrastructure, theming system and demo screens from the spec land in
-follow-up tickets.
+The focus infrastructure from the spec has landed under `lib/src/focus/` —
+importable as one file:
+
+```dart
+import 'package:tv_keyboard_demo/src/focus/focus.dart';
+```
+
+It replicates Moonfin-Core's focus system with zero Moonfin-Core imports:
+
+- **Inputmode tracking** — `InputModeTracker` (+ the `InputMode`/`InputModeProvider`
+  inherited widget) switches keyboard/D-pad vs pointer mode and pins keyboard on
+  TV (`TvPlatformDetection`).
+- **Key definitions** — `dpadKeys` key sets: select (Enter, Space, GameButtonA,
+  ...), back (Escape, GoBack, ...), context menu, directional, and page
+  transport keys.
+- **Key handlers** — `dpadKeyHandler`, `handleOneShotSelect`,
+  `handleBackKeyAction`, `LongPressSelectKeyHandler`, `arrowScrollHandler`,
+  `consumeIfEdge`.
+- **Focus widgets** — `FocusableWrapper`, `DpadListTile`,
+  `DpadSwitchListTile`, `DpadRadioGroup`/`DpadRadioListTile`,
+  `GlassFocusHalo` (+ `GlassPressScale`), `LockedFocusRow`, `RowGlide` and
+  `HubFocusMemory`.
+- **Focus navigation** — `FocusRouteObserver`, `RowFocusCoordinator`,
+  `GridFocusNodeMixin`.
+- **Scroll utilities** — `revealInNearestScrollable`,
+  `stepScrollWithinContextBounds`, `scrollListToIndex`, `scrollFocusIntoView`.
+
+Tests live in `test/focus/`; they run with the standard headless `flutter test`.
+
+The theming system and demo screens from the spec land in follow-up tickets.
 
 ## Project layout
 
 | Path | What it is |
 | --- | --- |
 | `lib/main.dart` | App entry point and the placeholder D-pad home screen |
-| `test/` | `flutter test` suite (currently a smoke test over the home screen) |
+| `lib/src/focus/` | The replicated focus infrastructure (see above) |
+| `test/` | `flutter test` suite (focus unit/widget tests plus the home smoke test) |
 | `android/` | Android/TV platform scaffolding (Gradle, manifest with leanback launcher) |
 | `analysis_options.yaml` | Analyzer configuration, based on `flutter_lints` |
