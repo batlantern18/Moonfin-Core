@@ -53,6 +53,13 @@ class InputModeTracker extends StatefulWidget {
 
   static _InputModeTrackerState? _instance;
 
+  /// Whether focus visuals remain in keyboard mode while a pointer is used.
+  static bool get focusModeForced => _instance?._forceKeyboardMode ?? false;
+
+  /// Forces traditional focus visuals independently of the latest input.
+  static void setFocusModeForced(bool value) =>
+      _instance?._setFocusModeForced(value);
+
   @override
   State<InputModeTracker> createState() => _InputModeTrackerState();
 }
@@ -60,6 +67,7 @@ class InputModeTracker extends StatefulWidget {
 class _InputModeTrackerState extends State<InputModeTracker> {
   late InputMode _mode;
   bool _pointerLive = false;
+  bool _forceKeyboardMode = false;
 
   @override
   void initState() {
@@ -109,8 +117,16 @@ class _InputModeTrackerState extends State<InputModeTracker> {
     _applyHighlightStrategy(mode);
   }
 
+  void _setFocusModeForced(bool value) {
+    if (_forceKeyboardMode == value) return;
+    setState(() => _forceKeyboardMode = value);
+    _applyHighlightStrategy(value ? InputMode.keyboard : _mode);
+  }
+
   void _applyHighlightStrategy(InputMode mode) {
-    FocusManager.instance.highlightStrategy = mode == InputMode.keyboard
+    final effectiveMode = _forceKeyboardMode ? InputMode.keyboard : mode;
+    FocusManager.instance.highlightStrategy =
+        effectiveMode == InputMode.keyboard
         ? FocusHighlightStrategy.alwaysTraditional
         : FocusHighlightStrategy.automatic;
   }
@@ -123,7 +139,7 @@ class _InputModeTrackerState extends State<InputModeTracker> {
       onPointerHover: _onPointer,
       onPointerSignal: _onPointer,
       child: _InputModeProvider(
-        mode: _mode,
+        mode: _forceKeyboardMode ? InputMode.keyboard : _mode,
         child: _PointerLiveProvider(
           pointerLive: _pointerLive,
           child: widget.child,

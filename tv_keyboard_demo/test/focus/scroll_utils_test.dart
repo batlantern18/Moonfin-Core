@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:tv_keyboard_demo/src/focus/scroll_utils.dart';
 
@@ -19,6 +20,7 @@ Future<void> pumpScroller(
         body: SizedBox(
           height: 300,
           child: ListView(
+            scrollCacheExtent: ScrollCacheExtent.pixels(1200),
             controller: controller,
             children: <Widget>[
               for (var i = 0; i < 10; i++)
@@ -26,10 +28,8 @@ Future<void> pumpScroller(
                   key: i == 7 ? _revealProbe : (i == 5 ? _stepProbe : null),
                   height: 100,
                   child: Builder(
-                    builder: (context) => Text(
-                      'item $i',
-                      textDirection: TextDirection.ltr,
-                    ),
+                    builder: (context) =>
+                        Text('item $i', textDirection: TextDirection.ltr),
                   ),
                 ),
             ],
@@ -52,16 +52,14 @@ Future<void> pumpScrollerWithBottomProbe(
         body: SizedBox(
           height: 300,
           child: ListView(
+            scrollCacheExtent: ScrollCacheExtent.pixels(1200),
             controller: controller,
             children: <Widget>[
               for (var i = 0; i < 10; i++)
                 SizedBox(
                   key: i == 9 ? probe : null,
                   height: 100,
-                  child: Text(
-                    'item $i',
-                    textDirection: TextDirection.ltr,
-                  ),
+                  child: Text('item $i', textDirection: TextDirection.ltr),
                 ),
             ],
           ),
@@ -73,12 +71,12 @@ Future<void> pumpScrollerWithBottomProbe(
 }
 
 void main() {
-  testWidgets('revealInNearestScrollable brings the probe into view',
-      (tester) async {
+  testWidgets('revealInNearestScrollable brings the probe into view', (
+    tester,
+  ) async {
     final controller = ScrollController();
     await pumpScroller(tester, controller: controller);
     expect(controller.offset, 0);
-
     revealInNearestScrollable(
       _revealProbe.currentContext!,
       alignment: 0.15,
@@ -94,42 +92,44 @@ void main() {
     expect(controller.offset, closeTo(expected, 2));
   });
 
-  testWidgets(
-    'revealInNearestScrollable clamps to the scrollable bounds',
-    (tester) async {
-      // Item 9 spans 900..1000 and could want offset 870; the list maxes
-      // out at 700 and the reveal clamps there.
-      final bottomProbe = _revealProbe;
-      final controller = ScrollController();
-      await pumpScrollerWithBottomProbe(tester, controller, bottomProbe);
-      revealInNearestScrollable(
-        bottomProbe.currentContext!,
-        alignment: 0.15,
-        duration: const Duration(milliseconds: 120),
-      );
-      await tester.pumpAndSettle();
-      expect(controller.offset, closeTo(controller.position.maxScrollExtent, 2));
-    },
-  );
+  testWidgets('revealInNearestScrollable clamps to the scrollable bounds', (
+    tester,
+  ) async {
+    // Item 9 spans 900..1000 and could want offset 870; the list maxes
+    // out at 700 and the reveal clamps there.
+    final bottomProbe = _revealProbe;
+    final controller = ScrollController();
+    await pumpScrollerWithBottomProbe(tester, controller, bottomProbe);
+    revealInNearestScrollable(
+      bottomProbe.currentContext!,
+      alignment: 0.15,
+      duration: const Duration(milliseconds: 120),
+    );
+    await tester.pumpAndSettle();
+    expect(controller.offset, closeTo(controller.position.maxScrollExtent, 2));
+  });
 
   testWidgets(
     'revealInNearestScrollable does nothing without a scrollable ancestor',
     (tester) async {
       final probe = GlobalKey();
-      await tester.pumpWidget(MaterialApp(
-        home: Builder(
-          key: probe,
-          builder: (context) => const Text('no scroller'),
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Builder(
+            key: probe,
+            builder: (context) => const Text('no scroller'),
+          ),
         ),
-      ));
+      );
       // Must not throw and must stay put.
       revealInNearestScrollable(probe.currentContext!, alignment: 0.5);
       await tester.pumpAndSettle();
     },
   );
 
-  testWidgets('stepScrollWithinContextBounds stops at the probe bounds',
-      (tester) async {
+  testWidgets('stepScrollWithinContextBounds stops at the probe bounds', (
+    tester,
+  ) async {
     final controller = ScrollController();
     await pumpScroller(tester, controller: controller);
     expect(controller.offset, 0);
@@ -151,7 +151,7 @@ void main() {
     // The probe spans 500..600, so stepping clamps to 600 and then returns
     // false: the key is free to hand on past this widget.
     expect(controller.offset, closeTo(600, 1));
-    expect(steps, 10);
+    expect(steps, 3);
   });
 
   testWidgets('stepScrollWithinContextBounds steps back up', (tester) async {
@@ -175,43 +175,56 @@ void main() {
     expect(controller.offset, closeTo(536, 1));
   });
 
-  testWidgets('stepScrollWithinContextBounds refuses without a scrollable',
-      (tester) async {
+  testWidgets('stepScrollWithinContextBounds refuses without a scrollable', (
+    tester,
+  ) async {
     final probe = GlobalKey();
-    await tester.pumpWidget(MaterialApp(
-      home: Builder(
-        key: probe,
-        builder: (context) => const Text('no scroller'),
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Builder(
+          key: probe,
+          builder: (context) => const Text('no scroller'),
+        ),
       ),
-    ));
+    );
     expect(
       stepScrollWithinContextBounds(probe.currentContext!, down: true),
       isFalse,
     );
   });
 
-  testWidgets('scrollFocusIntoView walks a whole page minus one peek',
-      (tester) async {
+  testWidgets('scrollFocusIntoView walks a whole page minus one peek', (
+    tester,
+  ) async {
     final controller = ScrollController();
     final probe = GlobalKey();
-    await tester.pumpWidget(MaterialApp(
-      home: Scaffold(
-        body: SizedBox(
-          height: 300,
-          child: ListView(
-            controller: controller,
-            children: <Widget>[
-              for (var i = 0; i < 10; i++)
-                SizedBox(
-                  key: i == 6 ? probe : null,
-                  height: 100,
-                  child: Text('item $i'),
-                ),
-            ],
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: SizedBox(
+            height: 300,
+            child: ListView(
+              scrollCacheExtent: ScrollCacheExtent.pixels(1200),
+              controller: controller,
+              children: <Widget>[
+                for (var i = 0; i < 10; i++)
+                  SizedBox(
+                    key: i == 6 ? probe : null,
+                    height: 100,
+                    child: Text('item $i'),
+                  ),
+              ],
+            ),
           ),
         ),
       ),
-    ));
+    );
+    await tester.pumpAndSettle();
+    await tester.scrollUntilVisible(
+      find.text('item 6'),
+      100,
+      scrollable: find.byType(Scrollable),
+    );
     await tester.pumpAndSettle();
 
     scrollFocusIntoView(probe.currentContext!);

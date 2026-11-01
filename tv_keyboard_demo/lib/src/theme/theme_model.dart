@@ -100,7 +100,10 @@ class ThemeModel {
 
   /// Decoration for a widget in its current focus state, built from this
   /// theme's focus configuration.
-  BoxDecoration focusDecoration({required bool focused}) {
+  BoxDecoration focusDecoration({
+    required bool focused,
+    FocusStyle? styleOverride,
+  }) {
     if (!focused) {
       return BoxDecoration(
         color: Color.lerp(surfaceColor, onSurfaceColor, 0.08)!,
@@ -109,7 +112,7 @@ class ThemeModel {
     }
 
     final BorderRadius radius = BorderRadius.circular(focusBorderRadius);
-    switch (focusStyle) {
+    switch (styleOverride ?? focusStyle) {
       case FocusStyle.borderOnly:
         return BoxDecoration(
           color: surfaceColor,
@@ -167,7 +170,11 @@ class ThemeModel {
         onSurface: onSurfaceColor,
         onSurfaceVariant: Color.lerp(onSurfaceColor, surfaceColor, 0.30)!,
         outline: Color.lerp(onSurfaceColor, surfaceColor, 0.40)!,
-        surfaceContainerHighest: Color.lerp(surfaceColor, onSurfaceColor, 0.12)!,
+        surfaceContainerHighest: Color.lerp(
+          surfaceColor,
+          onSurfaceColor,
+          0.12,
+        )!,
       ),
       scaffoldBackgroundColor: surfaceColor,
     );
@@ -199,21 +206,21 @@ class ThemeModel {
 
   @override
   int get hashCode => Object.hash(
-        id,
-        name,
-        brightness,
-        primaryColor,
-        accentColor,
-        surfaceColor,
-        onSurfaceColor,
-        focusColor,
-        focusBackgroundColor,
-        focusForegroundColor,
-        focusStyle,
-        focusBorderRadius,
-        focusAnimationDuration,
-        focusScale,
-        focusBorderWidth,
-        focusGlowColor,
-      );
+    id,
+    name,
+    brightness,
+    primaryColor,
+    accentColor,
+    surfaceColor,
+    onSurfaceColor,
+    focusColor,
+    focusBackgroundColor,
+    focusForegroundColor,
+    focusStyle,
+    focusBorderRadius,
+    focusAnimationDuration,
+    focusScale,
+    focusBorderWidth,
+    focusGlowColor,
+  );
 }

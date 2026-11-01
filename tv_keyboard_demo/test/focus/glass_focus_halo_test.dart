@@ -1,9 +1,8 @@
-import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:tv_keyboard_demo/src/focus/glass_focus_halo.dart';
 
-GlassFocusHalo _halo({bool focused = false, bool? ringOverPaints, double? scale}) =>
+Widget _halo({bool focused = false, bool? ringOverPaints, double? scale}) =>
     SizedBox(
       width: 120,
       height: 48,
@@ -32,8 +31,9 @@ void main() {
   setUp(() => GlassFocusHalo.appleStyleActive = false);
   tearDown(() => GlassFocusHalo.appleStyleActive = false);
 
-  testWidgets('an unfocused halo draws no ring and no scale pop',
-      (tester) async {
+  testWidgets('an unfocused halo draws no ring and no scale pop', (
+    tester,
+  ) async {
     await tester.pumpWidget(MaterialApp(home: _halo()));
     await tester.pumpAndSettle();
 
@@ -44,22 +44,22 @@ void main() {
     expect(scale.scale, 1.0);
   });
 
-  testWidgets('a focused halo rings with the theme primary and pops',
-      (tester) async {
+  testWidgets('a focused halo rings with the theme primary and pops', (
+    tester,
+  ) async {
     await tester.pumpWidget(MaterialApp(home: _halo(focused: true)));
     await tester.pumpAndSettle();
 
     final decoration = _ringDecoration(tester);
     final ring = (decoration.border as Border).top.color;
-    expect(ring.value, isNot(equals(Colors.transparent.value)));
-    expect(decoration.color!.alpha, greaterThan(0));
+    expect(ring.toARGB32(), isNot(equals(Colors.transparent.toARGB32())));
+    expect(decoration.color!.a, greaterThan(0));
 
     final scale = tester.widget<AnimatedScale>(find.byType(AnimatedScale));
     expect(scale.scale, 1.05);
   });
 
-  testWidgets('the apple look adds the white ring and glow',
-      (tester) async {
+  testWidgets('the apple look adds the white ring and glow', (tester) async {
     GlassFocusHalo.appleStyleActive = true;
     await tester.pumpWidget(MaterialApp(home: _halo(focused: true)));
     await tester.pumpAndSettle();
@@ -73,8 +73,9 @@ void main() {
     );
   });
 
-  testWidgets('ringOverPaints moves the ring to the foreground decoration',
-      (tester) async {
+  testWidgets('ringOverPaints moves the ring to the foreground decoration', (
+    tester,
+  ) async {
     await tester.pumpWidget(MaterialApp(home: _halo(focused: true)));
     await tester.pumpAndSettle();
     expect(_ringDecoration(tester).border, isNotNull);
@@ -84,49 +85,55 @@ void main() {
     );
     await tester.pumpAndSettle();
     expect(_ringDecoration(tester).border, isNull);
-    expect(_ringDecoration(tester).color, Colors.transparent);
+    expect(_ringDecoration(tester).color!.a, greaterThan(0));
   });
 
   testWidgets('scale 1.0 skips the scale pop entirely', (tester) async {
-    await tester.pumpWidget(MaterialApp(home: _halo(focused: true, scale: 1.0)));
+    await tester.pumpWidget(
+      MaterialApp(home: _halo(focused: true, scale: 1.0)),
+    );
     await tester.pumpAndSettle();
     expect(find.byType(AnimatedScale), findsNothing);
   });
 
   testWidgets(
     'the pointer press grows the halo when the apple look is on, and is '
-    'inert when it is off', (tester) async {
-    GlassFocusHalo.appleStyleActive = true;
-    await tester.pumpWidget(MaterialApp(home: _halo(focused: false)));
-    await tester.pumpAndSettle();
+    'inert when it is off',
+    (tester) async {
+      GlassFocusHalo.appleStyleActive = true;
+      await tester.pumpWidget(MaterialApp(home: _halo(focused: false)));
+      await tester.pumpAndSettle();
 
-    await tester.sendEventToBinding(
-      const PointerDownEvent(position: Offset(60, 24)),
-    );
-    await tester.pump(const Duration(milliseconds: 50));
-    final pressed = tester.widget<AnimatedScale>(find.byType(AnimatedScale).last);
-    expect(pressed.scale, greaterThan(1.0));
+      await tester.sendEventToBinding(
+        const PointerDownEvent(position: Offset(60, 24)),
+      );
+      await tester.pump(const Duration(milliseconds: 50));
+      final pressed = tester.widget<AnimatedScale>(
+        find.byType(AnimatedScale).last,
+      );
+      expect(pressed.scale, greaterThan(1.0));
 
-    await tester.sendEventToBinding(
-      const PointerUpEvent(position: Offset(60, 24)),
-    );
-    await tester.pumpAndSettle();
-    expect(
-      tester.widget<AnimatedScale>(find.byType(AnimatedScale).last).scale,
-      1.0,
-    );
+      await tester.sendEventToBinding(
+        const PointerUpEvent(position: Offset(60, 24)),
+      );
+      await tester.pumpAndSettle();
+      expect(
+        tester.widget<AnimatedScale>(find.byType(AnimatedScale).last).scale,
+        1.0,
+      );
 
-    GlassFocusHalo.appleStyleActive = false;
-    await tester.pumpWidget(MaterialApp(home: _halo(focused: false)));
-    await tester.pumpAndSettle();
-    await tester.sendEventToBinding(
-      const PointerDownEvent(position: Offset(60, 24)),
-    );
-    await tester.pump();
-    // Only the focus pop scale remains, resting at 1.0.
-    expect(
-      tester.widget<AnimatedScale>(find.byType(AnimatedScale).last).scale,
-      1.0,
-    );
-  });
+      GlassFocusHalo.appleStyleActive = false;
+      await tester.pumpWidget(MaterialApp(home: _halo(focused: false)));
+      await tester.pumpAndSettle();
+      await tester.sendEventToBinding(
+        const PointerDownEvent(position: Offset(60, 24)),
+      );
+      await tester.pump();
+      // Only the focus pop scale remains, resting at 1.0.
+      expect(
+        tester.widget<AnimatedScale>(find.byType(AnimatedScale).last).scale,
+        1.0,
+      );
+    },
+  );
 }

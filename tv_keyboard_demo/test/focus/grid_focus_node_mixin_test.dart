@@ -14,7 +14,8 @@ class _GridHost extends StatefulWidget {
   State<_GridHost> createState() => _GridHostState();
 }
 
-class _GridHostState extends State<_GridHost> with GridFocusNodeMixin {
+class _GridHostState extends State<_GridHost>
+    with GridFocusNodeMixin<_GridHost> {
   @override
   void dispose() {
     disposeGridFocusNodes();
@@ -38,12 +39,15 @@ class _GridHostState extends State<_GridHost> with GridFocusNodeMixin {
 }
 
 void main() {
-  testWidgets('per-position focus nodes survive rebuilds by position',
-      (tester) async {
+  setUp(GridFocusMemory.clear);
+
+  testWidgets('per-position focus nodes survive rebuilds by position', (
+    tester,
+  ) async {
     const hostKey = ValueKey('host');
     Widget host(int count) => MaterialApp(
-          home: _GridHost(key: hostKey, count: count),
-        );
+      home: _GridHost(key: hostKey, count: count),
+    );
 
     await tester.pumpWidget(host(6));
     await tester.pumpAndSettle();
@@ -63,12 +67,13 @@ void main() {
     expect(state.getGridItemFocusNode(2), same(node2));
   });
 
-  testWidgets('restore refocuses the remembered tile after content changes',
-      (tester) async {
+  testWidgets('restore refocuses the remembered tile after content changes', (
+    tester,
+  ) async {
     const hostKey = ValueKey('host');
     Widget host(int count) => MaterialApp(
-          home: _GridHost(key: hostKey, count: count),
-        );
+      home: _GridHost(key: hostKey, count: count),
+    );
 
     await tester.pumpWidget(host(6));
     await tester.pumpAndSettle();
@@ -94,12 +99,13 @@ void main() {
     expect(FocusManager.instance.primaryFocus, state.getGridItemFocusNode(4));
   });
 
-  testWidgets('restore clamps onto the last tile the shrunken grid still has',
-      (tester) async {
+  testWidgets('restore clamps onto the last tile the shrunken grid still has', (
+    tester,
+  ) async {
     const hostKey = ValueKey('host');
     Widget host(int count) => MaterialApp(
-          home: _GridHost(key: hostKey, count: count),
-        );
+      home: _GridHost(key: hostKey, count: count),
+    );
 
     await tester.pumpWidget(host(6));
     final state = tester.state<_GridHostState>(find.byKey(hostKey));
@@ -127,10 +133,38 @@ void main() {
     state.getGridItemFocusNode(5);
     expect(state.gridItemFocusNodes.length, 6);
 
-    await tester
-        .pumpWidget(MaterialApp(home: _GridHost(key: hostKey, count: 3)));
+    await tester.pumpWidget(
+      MaterialApp(home: _GridHost(key: hostKey, count: 3)),
+    );
     // Build's cleanup pruned the tail.
     expect(state.gridItemFocusNodes.keys.toSet(), {0, 1, 2});
+  });
+
+  testWidgets('the focused position survives creating a new grid screen', (
+    tester,
+  ) async {
+    Widget host(int count) => MaterialApp(home: _GridHost(count: count));
+
+    await tester.pumpWidget(host(6));
+    await tester.pumpAndSettle();
+    final first = tester.state<_GridHostState>(find.byType(_GridHost));
+    first.getGridItemFocusNode(3).requestFocus();
+    await tester.pumpAndSettle();
+    expect(GridFocusMemory.indexFor('_GridHost'), 3);
+
+    await tester.pumpWidget(const SizedBox.shrink());
+    await tester.pumpWidget(host(6));
+    await tester.pumpAndSettle();
+    final returned = tester.state<_GridHostState>(find.byType(_GridHost));
+    returned.gridContentVersion = 1;
+    returned.restoreGridFocusIfNeeded();
+    await tester.pumpAndSettle();
+
+    expect(returned.lastFocusedGridIndex, 3);
+    expect(
+      FocusManager.instance.primaryFocus,
+      returned.getGridItemFocusNode(3),
+    );
   });
 }
 

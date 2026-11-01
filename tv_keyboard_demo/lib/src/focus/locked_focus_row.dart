@@ -14,12 +14,8 @@ import 'scroll_utils.dart';
 
 const _kSelectLongPressDuration = Duration(milliseconds: 500);
 
-typedef LockedFocusItemBuilder<T> = Widget Function(
-  BuildContext context,
-  T item,
-  int index,
-  bool isFocused,
-);
+typedef LockedFocusItemBuilder<T> =
+    Widget Function(BuildContext context, T item, int index, bool isFocused);
 
 typedef LockedFocusVerticalNav = bool Function(bool isUp);
 
@@ -125,13 +121,16 @@ class LockedFocusRowState<T> extends State<LockedFocusRow<T>>
   @override
   void initState() {
     super.initState();
-    _focusNode = widget.focusNode ??
+    _focusNode =
+        widget.focusNode ??
         FocusNode(debugLabel: 'LockedFocusRow:${widget.hubKey}');
     _ownsFocusNode = widget.focusNode == null;
     _scrollController = widget.controller ?? ScrollController();
     _ownsScrollController = widget.controller == null;
-    _focusedIndex =
-        HubFocusMemory.getForHub(widget.hubKey, widget.items.length);
+    _focusedIndex = HubFocusMemory.getForHub(
+      widget.hubKey,
+      widget.items.length,
+    );
     widget.glide?.jumpTo(_focusedIndex);
     _syncItemKeys();
     _focusNode.addListener(_onRowFocusChange);
@@ -145,16 +144,16 @@ class LockedFocusRowState<T> extends State<LockedFocusRow<T>>
       if (_ownsFocusNode) {
         _focusNode.dispose();
       }
-      _focusNode = widget.focusNode ??
+      _focusNode =
+          widget.focusNode ??
           FocusNode(debugLabel: 'LockedFocusRow:${widget.hubKey}');
       _ownsFocusNode = widget.focusNode == null;
       _focusNode.addListener(_onRowFocusChange);
     }
     if (widget.items.length != oldWidget.items.length) {
-      final clamped = _focusedIndex.clamp(
-        0,
-        widget.items.isEmpty ? 0 : widget.items.length - 1,
-      ).toInt();
+      final clamped = _focusedIndex
+          .clamp(0, widget.items.isEmpty ? 0 : widget.items.length - 1)
+          .toInt();
       if (clamped != _focusedIndex) widget.glide?.jumpTo(clamped);
       _focusedIndex = clamped;
     }
@@ -200,8 +199,8 @@ class LockedFocusRowState<T> extends State<LockedFocusRow<T>>
   /// The selected card's layout, while keyboard focus remains on the row.
   BuildContext? get focusedItemContext =>
       _hasRowFocus && _focusedIndex >= 0 && _focusedIndex < _itemKeys.length
-          ? _itemKeys[_focusedIndex].currentContext
-          : null;
+      ? _itemKeys[_focusedIndex].currentContext
+      : null;
 
   /// Keeps the key of every item still present and allocates only for new
   /// ones, so appending a page leaves the existing elements alone.
@@ -329,28 +328,45 @@ class LockedFocusRowState<T> extends State<LockedFocusRow<T>>
       _glideTicker?.stop();
       return;
     }
-    final dt = (elapsed - _glideLastTick).inMicroseconds /
+    final dt =
+        (elapsed - _glideLastTick).inMicroseconds /
         Duration.microsecondsPerSecond;
     _glideLastTick = elapsed;
-    final moving = glide.tick(dt.clamp(0.0, 0.05) as double);
+    final moving = glide.tick(dt.clamp(0.0, 0.05));
     if (_scrollController.hasClients) {
       final position = _scrollController.position;
-      final offset = _glideScrollOffset(glide).clamp(
-        position.minScrollExtent,
-        position.maxScrollExtent,
-      ).toDouble();
+      final offset = _glideScrollOffset(
+        glide,
+      ).clamp(position.minScrollExtent, position.maxScrollExtent).toDouble();
       if (offset != position.pixels) _scrollController.jumpTo(offset);
     }
     if (!moving) _glideTicker?.stop();
   }
 
   double _glideScrollOffset(RowGlide glide) => glide.scrollOffset(
-        leading: widget.leadingPadding + _layoutDrift(),
-        stride: widget.itemExtent + widget.itemSpacing,
-      );
+    leading: widget.leadingPadding + _layoutDrift(),
+    stride: widget.itemExtent + widget.itemSpacing,
+  );
 
   KeyEventResult _onKeyEvent(FocusNode node, KeyEvent event) {
-    if (widget.items.isEmpty) return KeyEventResult.ignored;
+    if (widget.items.isEmpty) {
+      if (widget.onBack != null) {
+        final back = handleBackKeyAction(event, widget.onBack!);
+        if (back != KeyEventResult.ignored) return back;
+      }
+      if (event.logicalKey.isUpKey || event.logicalKey.isDownKey) {
+        if (!event.isActionable) return KeyEventResult.handled;
+        final moved =
+            widget.onVerticalNavigation?.call(event.logicalKey.isUpKey) ??
+            false;
+        return moved ? KeyEventResult.handled : KeyEventResult.ignored;
+      }
+      if (event.isActionable &&
+          (event.logicalKey.isDirectional || event.logicalKey.isSelectKey)) {
+        return KeyEventResult.handled;
+      }
+      return KeyEventResult.ignored;
+    }
 
     if (event.logicalKey.isSelectKey) {
       if (widget.onLongPress != null) {

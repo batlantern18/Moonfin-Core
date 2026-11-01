@@ -25,9 +25,8 @@ void main() {
     });
 
     test('clear removes one hub, clearAll all of them', () {
-      HubFocusMemory
-        ..set('a', 2)
-        ..set('b', 3);
+      HubFocusMemory.set('a', 2);
+      HubFocusMemory.set('b', 3);
       HubFocusMemory.clear('a');
       expect(HubFocusMemory.peek('a'), isNull);
       expect(HubFocusMemory.peek('b'), 3);
@@ -96,12 +95,13 @@ void main() {
     });
 
     test('scrollOffset keeps the focus card at the leading edge', () {
-      final glide = RowGlide(
-        cardGrowDuration: Duration.zero,
-        settleDuration: Duration.zero,
-      )
-        ..jumpTo(0)
-        ..growth = 20;
+      final glide =
+          RowGlide(
+              cardGrowDuration: Duration.zero,
+              settleDuration: Duration.zero,
+            )
+            ..jumpTo(0)
+            ..growth = 20;
       // With no gap and the position exactly on a card, the offset is the
       // card's own start.
       expect(glide.scrollOffset(leading: 50, stride: 100), 50.0);
@@ -112,15 +112,15 @@ void main() {
     });
 
     test('a catch-up gap decays back to zero', () {
-      final glide = RowGlide(
-        cardGrowDuration: Duration.zero,
-        settleDuration: Duration.zero,
-      )
-        ..catchUp(12)
-        ..jumpTo(1);
+      final glide =
+          RowGlide(
+              cardGrowDuration: Duration.zero,
+              settleDuration: Duration.zero,
+            )
+            ..catchUp(12)
+            ..jumpTo(1);
       final moved = glide.tick(0.5);
-      expect(glide.scrollOffset(leading: 0, stride: 100),
-          closeTo(100.0, 0.01));
+      expect(glide.scrollOffset(leading: 0, stride: 100), closeTo(100.0, 0.01));
       expect(moved, isFalse);
     });
   });

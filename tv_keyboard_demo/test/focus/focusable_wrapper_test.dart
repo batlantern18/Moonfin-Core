@@ -6,10 +6,9 @@ import 'package:tv_keyboard_demo/src/focus/glass_focus_halo.dart';
 import 'package:tv_keyboard_demo/src/focus/input_mode_tracker.dart';
 
 class _Counter extends StatelessWidget {
-  const _Counter({required this.label, this.onFire});
+  const _Counter({required this.label});
 
   final String label;
-  final VoidCallback? onFire;
 
   @override
   Widget build(BuildContext context) =>
@@ -22,8 +21,9 @@ void main() {
     GlassFocusHalo.appleStyleActive = false;
   });
 
-  testWidgets('select triggers the callback exactly once per press',
-      (tester) async {
+  testWidgets('select triggers the callback exactly once per press', (
+    tester,
+  ) async {
     var selected = 0;
     await tester.pumpWidget(
       MaterialApp(
@@ -60,11 +60,11 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    for (final (key, dir) in <(LogicalKeyboardKey, String)>[
-      (LogicalKeyboardKey.arrowUp, 'up'),
-      (LogicalKeyboardKey.arrowDown, 'down'),
-      (LogicalKeyboardKey.arrowLeft, 'left'),
-      (LogicalKeyboardKey.arrowRight, 'right'),
+    for (final key in <LogicalKeyboardKey>[
+      LogicalKeyboardKey.arrowUp,
+      LogicalKeyboardKey.arrowDown,
+      LogicalKeyboardKey.arrowLeft,
+      LogicalKeyboardKey.arrowRight,
     ]) {
       await tester.sendKeyDownEvent(key);
       await tester.pump();
@@ -72,8 +72,9 @@ void main() {
     expect(path, ['up', 'down', 'left', 'right']);
   });
 
-  testWidgets('back fires on key down and the key up does nothing',
-      (tester) async {
+  testWidgets('back fires on key down and the key up does nothing', (
+    tester,
+  ) async {
     var backs = 0;
     await tester.pumpWidget(
       MaterialApp(
@@ -94,37 +95,39 @@ void main() {
     expect(backs, 1);
   });
 
-  testWidgets('long-press fires on context menu key without select',
-      (tester) async {
+  testWidgets('long-press fires on context menu key without select', (
+    tester,
+  ) async {
     var selected = 0;
     Widget build(VoidCallback? onLongPress) => MaterialApp(
-          home: FocusableWrapper(
-            autofocus: true,
-            onSelect: () => selected++,
-            onLongPress: onLongPress,
-            child: const _Counter(label: 'item'),
-          ),
-        );
+      home: FocusableWrapper(
+        autofocus: true,
+        onSelect: () => selected++,
+        onLongPress: onLongPress,
+        child: const _Counter(label: 'item'),
+      ),
+    );
 
     // Without enableLongPress a context-menu press isn't mapped to select.
     await tester.pumpWidget(build(null));
     await tester.pumpAndSettle();
     await tester.sendKeyDownEvent(LogicalKeyboardKey.contextMenu);
     await tester.pump();
-    expect(longPressed, 0);
     expect(selected, 0);
 
     // With enableLongPress the context key long-presses directly.
     var longPressed = 0;
-    await tester.pumpWidget(MaterialApp(
-      home: FocusableWrapper(
-        autofocus: true,
-        enableLongPress: true,
-        onSelect: () => selected++,
-        onLongPress: () => longPressed++,
-        child: const _Counter(label: 'item'),
+    await tester.pumpWidget(
+      MaterialApp(
+        home: FocusableWrapper(
+          autofocus: true,
+          enableLongPress: true,
+          onSelect: () => selected++,
+          onLongPress: () => longPressed++,
+          child: const _Counter(label: 'item'),
+        ),
       ),
-    ));
+    );
     await tester.pumpAndSettle();
     selected = 0;
     await tester.sendKeyDownEvent(LogicalKeyboardKey.contextMenu);
@@ -133,8 +136,9 @@ void main() {
     expect(selected, 0);
   });
 
-  testWidgets('holding select long-presses; a quick press selects',
-      (tester) async {
+  testWidgets('holding select long-presses; a quick press selects', (
+    tester,
+  ) async {
     var selected = 0;
     var longPressed = 0;
     await tester.pumpWidget(
@@ -191,8 +195,9 @@ void main() {
     expect(events, [true, false]);
   });
 
-  testWidgets('autoScroll brings a focused child below the fold into view',
-      (tester) async {
+  testWidgets('autoScroll brings a focused child below the fold into view', (
+    tester,
+  ) async {
     final controller = ScrollController();
     final nodes = List<FocusNode>.generate(10, (_) => FocusNode());
     await tester.pumpWidget(
@@ -227,31 +232,36 @@ void main() {
     expect(controller.offset, greaterThan(0));
   });
 
-  testWidgets('useBackgroundFocus only shows the solid fill in keyboard mode',
-      (tester) async {
+  testWidgets('useBackgroundFocus only shows the solid fill in keyboard mode', (
+    tester,
+  ) async {
     final node = FocusNode();
     Widget build() => MaterialApp(
-          home: InputModeTracker(
-            child: FocusableWrapper(
-              focusNode: node,
-              autofocus: true,
-              useBackgroundFocus: true,
-              child: const _Counter(label: 'solid'),
-            ),
-          ),
-        );
+      home: InputModeTracker(
+        child: FocusableWrapper(
+          focusNode: node,
+          autofocus: true,
+          useBackgroundFocus: true,
+          child: const _Counter(label: 'solid'),
+        ),
+      ),
+    );
 
     await tester.pumpWidget(build());
     await tester.pumpAndSettle();
     // Non-TV defaults to pointer mode, so focus alone does not light the
     // solid fill.
-    expect(FocusableWrapper.isHighlighted(tester.element(find.text('solid'))),
-        isFalse);
+    expect(
+      FocusableWrapper.isHighlighted(tester.element(find.text('solid'))),
+      isFalse,
+    );
 
     // A key press switches to keyboard mode, and the fill appears.
     await tester.sendKeyDownEvent(LogicalKeyboardKey.select);
     await tester.pump();
-    expect(FocusableWrapper.isHighlighted(tester.element(find.text('solid'))),
-        isTrue);
+    expect(
+      FocusableWrapper.isHighlighted(tester.element(find.text('solid'))),
+      isTrue,
+    );
   });
 }

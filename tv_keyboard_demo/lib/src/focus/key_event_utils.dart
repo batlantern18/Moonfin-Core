@@ -17,7 +17,7 @@ import 'dpad_keys.dart';
 /// (a text field trying to commit, say) never double-fires.
 KeyEventResult handleOneShotSelect(KeyEvent event, VoidCallback onSelect) {
   if (event is KeyDownEvent && event.logicalKey.isSelectKey) {
-    _SelectKeyUpSuppressor.markPressed();
+    _SelectKeyUpSuppressor.markPressed(event.logicalKey);
     onSelect();
     return KeyEventResult.handled;
   }
@@ -28,16 +28,14 @@ KeyEventResult handleOneShotSelect(KeyEvent event, VoidCallback onSelect) {
 }
 
 class _SelectKeyUpSuppressor {
-  static int _suppressCount = 0;
+  static final Set<LogicalKeyboardKey> _pressedKeys = <LogicalKeyboardKey>{};
 
-  static void markPressed() => _suppressCount++;
+  static void markPressed(LogicalKeyboardKey key) => _pressedKeys.add(key);
 
   static bool consumeIfSuppressed(KeyEvent event) {
     if (event is! KeyUpEvent) return false;
     if (!event.logicalKey.isSelectKey) return false;
-    if (_suppressCount == 0) return false;
-    _suppressCount--;
-    return true;
+    return _pressedKeys.remove(event.logicalKey);
   }
 }
 
@@ -99,10 +97,9 @@ FocusOnKeyEventCallback arrowScrollHandler(
   void scrollBy(double delta) {
     if (!controller.hasClients) return;
     final position = controller.position;
-    final target = (position.pixels + delta).clamp(
-      position.minScrollExtent,
-      position.maxScrollExtent,
-    ).toDouble();
+    final target = (position.pixels + delta)
+        .clamp(position.minScrollExtent, position.maxScrollExtent)
+        .toDouble();
     unawaited(
       controller.animateTo(
         target,

@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:flutter/rendering.dart';
 import 'package:flutter/widgets.dart';
 
 /// D-pad scrolling helpers. Replicated from Moonfin-Core's
@@ -32,7 +33,8 @@ Future<void> scrollListToIndex(
 }) {
   if (!controller.hasClients) return Future<void>.value();
   final maxOffset = controller.position.maxScrollExtent;
-  final target = (index * itemExtent + leadingPadding).clamp(0.0, maxOffset)
+  final target = (index * itemExtent + leadingPadding)
+      .clamp(0.0, maxOffset)
       .toDouble();
   if (animate) {
     return controller.animateTo(target, duration: duration, curve: curve);
@@ -88,9 +90,7 @@ void revealInNearestScrollable(
       .offset
       .clamp(position.minScrollExtent, position.maxScrollExtent)
       .toDouble();
-  unawaited(
-    position.animateTo(target, duration: duration, curve: curve),
-  );
+  unawaited(position.animateTo(target, duration: duration, curve: curve));
 }
 
 /// Steps a scrollable between the reveal extents of [context]'s widget:
@@ -119,9 +119,10 @@ bool stepScrollWithinContextBounds(
       .offset
       .clamp(position.minScrollExtent, position.maxScrollExtent)
       .toDouble();
-  final upperBound = viewport
-      .getOffsetToReveal(renderObject, 1.0)
-      .offset
+  // For an item shorter than the viewport, alignment 1.0 can produce an
+  // offset *before* its leading edge. The step range is the item's leading
+  // reveal position through one item extent, clamped to the scrollable.
+  final upperBound = (lowerBound + renderObject.size.height)
       .clamp(position.minScrollExtent, position.maxScrollExtent)
       .toDouble();
   if (upperBound - lowerBound < 0.5) {

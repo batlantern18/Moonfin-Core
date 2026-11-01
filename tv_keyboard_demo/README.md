@@ -26,15 +26,20 @@ flutter analyze
 flutter test
 ```
 
+The complete test command includes headless D-pad navigation flows for rows,
+dialogs, list context menus, theme changes, and edge-case data. CI runs the same
+`flutter analyze` and `flutter test` commands in
+`.github/workflows/tv-keyboard-demo.yml`.
+
 ## Run on an Android TV device or emulator
 
 ```sh
-flutter run
+flutter run --dart-define=TV_KEYBOARD_TV_MODE=true
 ```
 
 With no device attached, create an Android TV emulator (Android TV image,
 1080p, e.g. via Android Studio → Device Manager → Create Virtual Device → TV)
-and then `flutter run` again. The app declares `LEANBACK_LAUNCHER` in its
+and then run the same command. The app declares `LEANBACK_LAUNCHER` in its
 manifest, so it appears in the TV launcher alongside regular launchers.
 
 ## Build a release APK
@@ -46,10 +51,10 @@ flutter build apk --release
 The APK lands in `build/app/outputs/flutter-apk/app-release.apk`; install it
 with `adb install -r build/app/outputs/flutter-apk/app-release.apk`.
 
-## Current status
+## Features
 
-The focus infrastructure from the spec has landed under `lib/src/focus/` —
-importable as one file:
+The focus infrastructure lives under `lib/src/focus/` — importable as one
+file:
 
 ```dart
 import 'package:tv_keyboard_demo/src/focus/focus.dart';
@@ -75,16 +80,20 @@ It replicates Moonfin-Core's focus system with zero Moonfin-Core imports:
 - **Scroll utilities** — `revealInNearestScrollable`,
   `stepScrollWithinContextBounds`, `scrollListToIndex`, `scrollFocusIntoView`.
 
-Tests live in `test/focus/`; they run with the standard headless `flutter test`.
-
-The theming system and demo screens from the spec land in follow-up tickets.
+The app includes horizontal home rows with spring glide, list and grid
+navigation, navigable context menus and dialogs, runtime theme switching with
+persistent selection, focus-mode controls, RTL preview, edge-case sample data,
+and an About screen. Tests live in `test/` and run with the standard headless
+`flutter test`.
 
 ## Project layout
 
 | Path | What it is |
 | --- | --- |
-| `lib/main.dart` | App entry point and the placeholder D-pad home screen |
+| `lib/main.dart` | App entry point and theme registry wiring |
 | `lib/src/focus/` | The replicated focus infrastructure (see above) |
-| `test/` | `flutter test` suite (focus unit/widget tests plus the home smoke test) |
+| `lib/src/screens/` | Home, list/grid, settings, dialog, and about screens |
+| `lib/src/theme/` | Theme model, registry, and four built-in themes |
+| `test/` | Focus, theme, screen, and integration tests |
 | `android/` | Android/TV platform scaffolding (Gradle, manifest with leanback launcher) |
 | `analysis_options.yaml` | Analyzer configuration, based on `flutter_lints` |

@@ -51,7 +51,7 @@ void main() {
     final modes = <String>[];
     await pumpTracker(tester, recorded: modes);
     expect(modes, ['pointer']);
-    expect(find.byText('false:false'), findsOneWidget);
+    expect(find.text('false:false'), findsOneWidget);
   });
 
   testWidgets('defaults to keyboard on a TV device', (tester) async {
@@ -65,12 +65,12 @@ void main() {
     final modes = <String>[];
     await pumpTracker(tester, recorded: modes);
     expect(modes, ['pointer']);
-    expect(find.byText('false:false'), findsOneWidget);
+    expect(find.text('false:false'), findsOneWidget);
 
     await tester.sendKeyDownEvent(LogicalKeyboardKey.arrowDown);
     await tester.pump();
     expect(modes.last, 'keyboard');
-    expect(find.byText('true:false'), findsOneWidget);
+    expect(find.text('true:false'), findsOneWidget);
   });
 
   testWidgets('a pointer event makes the UI pointer-driven', (tester) async {
@@ -88,11 +88,12 @@ void main() {
     );
     await tester.pump();
     expect(modes, ['pointer', 'keyboard', 'pointer']);
-    expect(find.byText('false:true'), findsOneWidget);
+    expect(find.text('false:true'), findsOneWidget);
   });
 
-  testWidgets('on TV, pointer events never leave keyboard mode',
-      (tester) async {
+  testWidgets('on TV, pointer events never leave keyboard mode', (
+    tester,
+  ) async {
     TvPlatformDetection.setTvMode(true);
     final modes = <String>[];
     await pumpTracker(tester, recorded: modes);
@@ -104,7 +105,7 @@ void main() {
     await tester.pump();
     expect(modes, ['keyboard']);
     // The mouse is still drawn hover state even though focus visuals stay.
-    expect(find.byText('true:true'), findsOneWidget);
+    expect(find.text('true:true'), findsOneWidget);
   });
 
   testWidgets('a pointer down position is remembered', (tester) async {
@@ -115,9 +116,28 @@ void main() {
       const PointerDownEvent(position: Offset(50, 50)),
     );
     await tester.pump();
-    expect(
-      InputModeTracker.lastPointerDownPosition,
-      const Offset(50, 50),
+    expect(InputModeTracker.lastPointerDownPosition, const Offset(50, 50));
+  });
+
+  testWidgets('forced focus mode stays on while a pointer is used', (
+    tester,
+  ) async {
+    final modes = <String>[];
+    await pumpTracker(tester, recorded: modes);
+
+    InputModeTracker.setFocusModeForced(true);
+    await tester.pump();
+    await tester.sendEventToBinding(
+      const PointerHoverEvent(position: Offset(60, 50)),
     );
+    await tester.pump();
+
+    expect(modes.last, 'keyboard');
+    expect(find.text('true:true'), findsOneWidget);
+
+    InputModeTracker.setFocusModeForced(false);
+    await tester.pump();
+    expect(modes.last, 'pointer');
+    expect(find.text('false:true'), findsOneWidget);
   });
 }

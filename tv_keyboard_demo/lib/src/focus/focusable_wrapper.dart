@@ -119,9 +119,10 @@ class _FocusableWrapperState extends State<FocusableWrapper>
       vsync: this,
       duration: FocusTheme.animationDuration,
     );
-    _scaleAnimation = Tween<double>(begin: 1.0, end: FocusTheme.scale).animate(
-      CurvedAnimation(parent: _scaleController, curve: Curves.easeOut),
-    );
+    _scaleAnimation = Tween<double>(
+      begin: 1.0,
+      end: FocusTheme.scale,
+    ).animate(CurvedAnimation(parent: _scaleController, curve: Curves.easeOut));
   }
 
   @override
@@ -188,6 +189,13 @@ class _FocusableWrapperState extends State<FocusableWrapper>
   KeyEventResult _onKeyEvent(FocusNode node, KeyEvent event) {
     final override = widget.onKeyEvent?.call(node, event);
     if (override != null && override != KeyEventResult.ignored) return override;
+
+    if (widget.enableLongPress &&
+        event is KeyDownEvent &&
+        event.logicalKey.isContextMenuKey) {
+      widget.onLongPress?.call();
+      return KeyEventResult.handled;
+    }
 
     if (widget.enableLongPress && widget.onSelect != null) {
       if (event is KeyDownEvent && event.logicalKey.isSelectKey) {
@@ -295,9 +303,10 @@ class _FocusableWrapperState extends State<FocusableWrapper>
                 decoration: BoxDecoration(
                   borderRadius: BorderRadius.circular(effectiveRadius),
                   border: Border.fromBorderSide(
-                    FocusTheme.focusBorder(context, color: color).copyWith(
-                      width: borderWidth,
-                    ),
+                    FocusTheme.focusBorder(
+                      context,
+                      color: color,
+                    ).copyWith(width: borderWidth),
                   ),
                 ),
               ),

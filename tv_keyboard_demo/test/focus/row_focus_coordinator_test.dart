@@ -4,7 +4,7 @@ import 'package:tv_keyboard_demo/src/focus/locked_focus_row.dart';
 import 'package:tv_keyboard_demo/src/focus/row_focus_coordinator.dart';
 
 void main() {
-  final GlobalKey<LockedFocusRowState<int>> _rowKey =
+  final GlobalKey<LockedFocusRowState<int>> rowKey =
       GlobalKey<LockedFocusRowState<int>>();
   late FocusNode a;
   late FocusNode b;
@@ -37,20 +37,21 @@ void main() {
               Focus(
                 focusNode: b,
                 canRequestFocus: bFocusable,
-                child: Container(
-                  key: const ValueKey('mid'),
-                  height: 10,
-                ),
+                child: Container(key: const ValueKey('mid'), height: 10),
               ),
               Focus(focusNode: c, child: const SizedBox(height: 10)),
               if (listRow)
-                LockedFocusRow<int>(
-                  key: _rowKey,
-                  hubKey: 'coord',
-                  itemExtent: 50,
-                  height: 40,
-                  items: const [1, 2],
-                  builder: (context, item, index, focused) => SizedBox.expand(),
+                SizedBox(
+                  width: 300,
+                  child: LockedFocusRow<int>(
+                    key: rowKey,
+                    hubKey: 'coord',
+                    itemExtent: 50,
+                    height: 40,
+                    items: const [1, 2],
+                    itemBuilder: (context, item, index, focused) =>
+                        const SizedBox(width: 50, height: 40),
+                  ),
                 ),
             ],
           ),
@@ -60,8 +61,9 @@ void main() {
     await tester.pumpAndSettle();
   }
 
-  testWidgets('moveVertical skips an unfocusable stop in the middle',
-      (tester) async {
+  testWidgets('moveVertical skips an unfocusable stop in the middle', (
+    tester,
+  ) async {
     await pump(tester, bFocusable: false);
     final coordinator = RowFocusCoordinator()
       ..entries = [
@@ -71,32 +73,31 @@ void main() {
       ];
 
     expect(coordinator.moveVertical(fromIndex: 0, isUp: false), isTrue);
-    expect(FocusManager.instance.primaryFocus, c,
-        reason: 'b cannot take focus, so c does');
+    await tester.pumpAndSettle();
+    expect(
+      FocusManager.instance.primaryFocus,
+      c,
+      reason: 'b cannot take focus, so c does',
+    );
   });
 
-  testWidgets('moveVertical walks upward to a focusable stop',
-      (tester) async {
+  testWidgets('moveVertical walks upward to a focusable stop', (tester) async {
     await pump(tester, bFocusable: false);
     final coordinator = RowFocusCoordinator()
-      ..entries = [
-        RowFocusEntry.node(a),
-        RowFocusEntry.node(b),
-      ];
+      ..entries = [RowFocusEntry.node(a), RowFocusEntry.node(b)];
 
     expect(coordinator.moveVertical(fromIndex: 1, isUp: true), isTrue);
+    await tester.pumpAndSettle();
     expect(FocusManager.instance.primaryFocus, a);
   });
 
   testWidgets('focusFirst lands on the first focusable entry', (tester) async {
     await pump(tester, bFocusable: false);
     final coordinator = RowFocusCoordinator()
-      ..entries = [
-        RowFocusEntry.node(b),
-        RowFocusEntry.node(a),
-      ];
+      ..entries = [RowFocusEntry.node(b), RowFocusEntry.node(a)];
 
     expect(coordinator.focusFirst(), isTrue);
+    await tester.pumpAndSettle();
     expect(FocusManager.instance.primaryFocus, a);
 
     // An empty coordinator fails politely.
@@ -106,9 +107,10 @@ void main() {
   testWidgets('row entries focus the remembered card', (tester) async {
     await pump(tester, listRow: true);
     final coordinator = RowFocusCoordinator()
-      ..entries = [RowFocusEntry.row(_rowKey)];
+      ..entries = [RowFocusEntry.row(rowKey)];
 
     expect(coordinator.focusFirst(), isTrue);
+    await tester.pumpAndSettle();
     expect(
       FocusManager.instance.primaryFocus!.debugLabel,
       'LockedFocusRow:coord',

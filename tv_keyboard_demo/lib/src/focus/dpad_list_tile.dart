@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -11,8 +13,7 @@ import 'platform_detection.dart';
 /// On TV devices the row routes select through a Focus handler, because a
 /// remote's select card does not map every platform to an InkWell tap. Away
 /// from TV the plain [ListTile] is returned so pointer platforms keep their
-/// native behavior. Replicated from Moonfin-Core's DpadListTile with the
-/// settings icon shell left out (the demo has no settings screens).
+/// native behavior. Replicated from Moonfin-Core's DpadListTile for the demo.
 class DpadListTile extends StatelessWidget {
   const DpadListTile({
     super.key,
@@ -26,6 +27,7 @@ class DpadListTile extends StatelessWidget {
     this.contentPadding,
     this.selected,
     this.focusColor,
+    this.onFocusChange,
     this.onTap,
     this.onLongPress,
   });
@@ -44,51 +46,23 @@ class DpadListTile extends StatelessWidget {
 
   /// The highlight color used while the row is focused on TV.
   final Color? focusColor;
+  final ValueChanged<bool>? onFocusChange;
 
   final VoidCallback? onTap;
   final VoidCallback? onLongPress;
 
   Widget _tvTile(BuildContext context) => _TvFocusHighlight(
-        enabled: enabled,
-        focusNode: focusNode,
-        focusColor: focusColor,
-        builder: (context, focused) => ListTile(
-          focusNode: focusNode,
-          autofocus: autofocus,
-          enabled: enabled,
-          selected: selected ?? false,
-          focusColor: Colors.transparent,
-          hoverColor: Colors.transparent,
-          leading: leading,
-          title: title,
-          subtitle: subtitle,
-          trailing: trailing,
-          contentPadding: contentPadding,
-          onTap: enabled ? onTap : null,
-          onLongPress: enabled ? onLongPress : null,
-        ),
-      );
-
-  @override
-  Widget build(BuildContext context) {
-    if (TvPlatformDetection.isTV) {
-      return Focus(
-        canRequestFocus: false,
-        skipTraversal: true,
-        onKeyEvent: (_, event) {
-          if (!event.logicalKey.isSelectKey || !enabled || onTap == null) {
-            return KeyEventResult.ignored;
-          }
-          if (event is KeyDownEvent) onTap!();
-          return KeyEventResult.handled;
-        },
-        child: _tvTile(context),
-      );
-    }
-
-    return ListTile(
+    enabled: enabled,
+    focusNode: focusNode,
+    focusColor: focusColor,
+    onFocusChange: onFocusChange,
+    builder: (context, focused, node) => ListTile(
+      focusNode: node,
+      autofocus: autofocus,
       enabled: enabled,
       selected: selected ?? false,
+      focusColor: Colors.transparent,
+      hoverColor: Colors.transparent,
       leading: leading,
       title: title,
       subtitle: subtitle,
@@ -96,8 +70,102 @@ class DpadListTile extends StatelessWidget {
       contentPadding: contentPadding,
       onTap: enabled ? onTap : null,
       onLongPress: enabled ? onLongPress : null,
+    ),
+  );
+
+  @override
+  Widget build(BuildContext context) {
+    if (TvPlatformDetection.isTV) {
+      return _DpadListTileKeyHandler(
+        enabled: enabled,
+        onTap: onTap,
+        onLongPress: onLongPress,
+        child: _tvTile(context),
+      );
+    }
+
+    return Focus(
+      skipTraversal: true,
+      onFocusChange: onFocusChange,
+      child: ListTile(
+        enabled: enabled,
+        selected: selected ?? false,
+        leading: leading,
+        title: title,
+        subtitle: subtitle,
+        trailing: trailing,
+        contentPadding: contentPadding,
+        onTap: enabled ? onTap : null,
+        onLongPress: enabled ? onLongPress : null,
+      ),
     );
   }
+}
+
+class _DpadListTileKeyHandler extends StatefulWidget {
+  const _DpadListTileKeyHandler({
+    required this.enabled,
+    required this.child,
+    this.onTap,
+    this.onLongPress,
+  });
+
+  final bool enabled;
+  final VoidCallback? onTap;
+  final VoidCallback? onLongPress;
+  final Widget child;
+
+  @override
+  State<_DpadListTileKeyHandler> createState() =>
+      _DpadListTileKeyHandlerState();
+}
+
+class _DpadListTileKeyHandlerState extends State<_DpadListTileKeyHandler> {
+  Timer? _holdTimer;
+  bool _longPressFired = false;
+
+  @override
+  void dispose() {
+    _holdTimer?.cancel();
+    super.dispose();
+  }
+
+  KeyEventResult _onKeyEvent(FocusNode _, KeyEvent event) {
+    if (!widget.enabled) return KeyEventResult.ignored;
+    if (event.logicalKey.isContextMenuKey && widget.onLongPress != null) {
+      if (event is KeyDownEvent) widget.onLongPress!();
+      return KeyEventResult.handled;
+    }
+    if (!event.logicalKey.isSelectKey || widget.onTap == null) {
+      return KeyEventResult.ignored;
+    }
+
+    if (widget.onLongPress == null) {
+      if (event is KeyDownEvent) widget.onTap!();
+      return KeyEventResult.handled;
+    }
+    if (event is KeyDownEvent) {
+      _holdTimer?.cancel();
+      _longPressFired = false;
+      _holdTimer = Timer(const Duration(milliseconds: 500), () {
+        _longPressFired = true;
+        widget.onLongPress?.call();
+      });
+      return KeyEventResult.handled;
+    }
+    if (event is KeyUpEvent) {
+      _holdTimer?.cancel();
+      _holdTimer = null;
+      if (!_longPressFired) widget.onTap!();
+      _longPressFired = false;
+      return KeyEventResult.handled;
+    }
+    return KeyEventResult.handled;
+  }
+
+  @override
+  Widget build(BuildContext context) =>
+      Focus(skipTraversal: true, onKeyEvent: _onKeyEvent, child: widget.child);
 }
 
 /// Switch variant of [DpadListTile]. Pressing the remote select key toggles
@@ -127,26 +195,25 @@ class DpadSwitchListTile extends StatelessWidget {
   final ValueChanged<bool>? onChanged;
 
   Widget _tvTile() => _TvFocusHighlight(
-        enabled: enabled,
-        focusNode: focusNode,
-        focusColor: focusColor,
-        builder: (context, focused) => SwitchListTile.adaptive(
-          focusNode: focusNode,
-          autofocus: autofocus,
-          secondary: secondary,
-          title: title,
-          subtitle: subtitle,
-          value: value,
-          onChanged: enabled ? onChanged : null,
-        ),
-      );
+    enabled: enabled,
+    focusNode: focusNode,
+    focusColor: focusColor,
+    builder: (context, focused, node) => SwitchListTile.adaptive(
+      focusNode: node,
+      autofocus: autofocus,
+      secondary: secondary,
+      title: title,
+      subtitle: subtitle,
+      value: value,
+      onChanged: enabled ? onChanged : null,
+    ),
+  );
 
   @override
   Widget build(BuildContext context) {
     final canToggle = enabled && onChanged != null;
     if (TvPlatformDetection.isTV) {
       return Focus(
-        canRequestFocus: false,
         skipTraversal: true,
         onKeyEvent: (_, event) {
           if (!event.logicalKey.isSelectKey || !canToggle) {
@@ -270,13 +337,16 @@ class _TvFocusHighlight extends StatefulWidget {
   final bool enabled;
   final FocusNode? focusNode;
   final Color? focusColor;
-  final Widget Function(BuildContext context, bool focused) builder;
+  final ValueChanged<bool>? onFocusChange;
+  final Widget Function(BuildContext context, bool focused, FocusNode node)
+  builder;
 
   const _TvFocusHighlight({
     required this.enabled,
     required this.builder,
     this.focusNode,
     this.focusColor,
+    this.onFocusChange,
   });
 
   @override
@@ -301,7 +371,9 @@ class _TvFocusHighlightState extends State<_TvFocusHighlight> {
   void didUpdateWidget(covariant _TvFocusHighlight oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.focusNode != widget.focusNode) {
-      _tracked?.removeListener(_mark);
+      final oldNode = oldWidget.focusNode ?? _tracked;
+      oldNode?.removeListener(_mark);
+      if (oldWidget.focusNode == null) _tracked?.dispose();
       _tracked = null;
       _node.addListener(_mark);
     }
@@ -315,7 +387,10 @@ class _TvFocusHighlightState extends State<_TvFocusHighlight> {
   }
 
   void _mark() {
-    if (mounted) setState(() {});
+    if (mounted) {
+      setState(() {});
+      widget.onFocusChange?.call(_node.hasFocus);
+    }
   }
 
   @override
@@ -328,7 +403,8 @@ class _TvFocusHighlightState extends State<_TvFocusHighlight> {
           ? BoxDecoration(
               borderRadius: BorderRadius.circular(10),
               border: Border.all(
-                color: widget.focusColor ??
+                color:
+                    widget.focusColor ??
                     (GlassFocusHalo.appleStyleActive
                         ? Colors.white
                         : Theme.of(context).primaryColor),
@@ -336,7 +412,7 @@ class _TvFocusHighlightState extends State<_TvFocusHighlight> {
               ),
             )
           : const BoxDecoration(),
-      child: widget.builder(context, focused),
+      child: widget.builder(context, focused, _node),
     );
   }
 }

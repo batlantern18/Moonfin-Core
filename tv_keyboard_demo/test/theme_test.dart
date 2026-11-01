@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:tv_keyboard_demo/main.dart';
+import 'package:tv_keyboard_demo/src/screens/home_screen.dart';
 import 'package:tv_keyboard_demo/src/theme/builtin_themes.dart';
 import 'package:tv_keyboard_demo/src/theme/theme_model.dart';
 import 'package:tv_keyboard_demo/src/theme/theme_registry.dart';
@@ -162,7 +163,7 @@ void main() {
       expect(registry.current.id, BuiltInThemes.dark.id);
 
       var notifications = 0;
-      final void Function() listener = () => notifications++;
+      void listener() => notifications++;
       registry.addListener(listener);
 
       registry.switchTheme(BuiltInThemes.light.id);
@@ -175,10 +176,7 @@ void main() {
     test('switching to an unregistered id throws', () {
       final ThemeRegistry registry = ThemeRegistry();
 
-      expect(
-        () => registry.switchTheme('does-not-exist'),
-        throwsArgumentError,
-      );
+      expect(() => registry.switchTheme('does-not-exist'), throwsArgumentError);
       expect(registry.current.id, BuiltInThemes.dark.id);
     });
 
@@ -212,8 +210,9 @@ void main() {
   });
 
   group('ThemeScope', () {
-    testWidgets('dependents observe the current theme and rebuild on switch',
-        (WidgetTester tester) async {
+    testWidgets('dependents observe the current theme and rebuild on switch', (
+      WidgetTester tester,
+    ) async {
       final ThemeRegistry registry = ThemeRegistry();
       ThemeModel? observed;
 
@@ -222,7 +221,7 @@ void main() {
           registry: registry,
           child: Builder(
             builder: (BuildContext context) {
-              observed = ThemeModel.of(context);
+              observed = ThemeScope.of(context);
               return const SizedBox.shrink();
             },
           ),
@@ -240,25 +239,30 @@ void main() {
   group('app focus visuals follow the theme', () {
     BoxDecoration focusedTileDecoration(WidgetTester tester) {
       final AnimatedContainer container = tester.widget<AnimatedContainer>(
-        find.descendant(
-          of: find.byType(DemoTile),
-          matching: find.byType(AnimatedContainer),
-        ).first,
+        find
+            .descendant(
+              of: find.byType(HomeRowCard),
+              matching: find.byType(AnimatedContainer),
+            )
+            .first,
       );
       return container.decoration as BoxDecoration;
     }
 
     AnimatedScale focusedTileScale(WidgetTester tester) {
       return tester.widget<AnimatedScale>(
-        find.descendant(
-          of: find.byType(DemoTile),
-          matching: find.byType(AnimatedScale),
-        ).first,
+        find
+            .descendant(
+              of: find.byType(HomeRowCard),
+              matching: find.byType(AnimatedScale),
+            )
+            .first,
       );
     }
 
-    testWidgets('switching themes re-skins the focused tile everywhere',
-        (WidgetTester tester) async {
+    testWidgets('switching themes re-skins the focused tile everywhere', (
+      WidgetTester tester,
+    ) async {
       final ThemeRegistry registry = ThemeRegistry();
       await tester.pumpWidget(TvKeyboardDemoApp(registry: registry));
       await tester.pumpAndSettle();
@@ -278,7 +282,10 @@ void main() {
 
       AnimatedScale animatedScale = focusedTileScale(tester);
       expect(animatedScale.scale, BuiltInThemes.light.focusScale);
-      expect(animatedScale.duration, BuiltInThemes.light.focusAnimationDuration);
+      expect(
+        animatedScale.duration,
+        BuiltInThemes.light.focusAnimationDuration,
+      );
 
       // HighContrast: solid fill, thick bright ring, bigger scale, faster.
       registry.switchTheme(BuiltInThemes.highContrast.id);
@@ -286,16 +293,15 @@ void main() {
       decoration = focusedTileDecoration(tester);
       final Border contrastBorder = decoration.border as Border;
       expect(decoration.color, BuiltInThemes.highContrast.focusBackgroundColor);
-      expect(
-        contrastBorder.top.color,
-        BuiltInThemes.highContrast.focusColor,
-      );
+      expect(contrastBorder.top.color, BuiltInThemes.highContrast.focusColor);
       expect(
         contrastBorder.top.width,
         BuiltInThemes.highContrast.focusBorderWidth,
       );
-      expect(decoration.borderRadius,
-          BorderRadius.circular(BuiltInThemes.highContrast.focusBorderRadius));
+      expect(
+        decoration.borderRadius,
+        BorderRadius.circular(BuiltInThemes.highContrast.focusBorderRadius),
+      );
 
       animatedScale = focusedTileScale(tester);
       expect(animatedScale.scale, BuiltInThemes.highContrast.focusScale);
@@ -322,8 +328,9 @@ void main() {
       );
     });
 
-    testWidgets('focused tile uses the focus foreground color',
-        (WidgetTester tester) async {
+    testWidgets('focused tile uses the focus foreground color', (
+      WidgetTester tester,
+    ) async {
       final ThemeRegistry registry = ThemeRegistry();
       await tester.pumpWidget(TvKeyboardDemoApp(registry: registry));
       await tester.pumpAndSettle();
@@ -333,8 +340,8 @@ void main() {
 
       final Text text = tester.widget<Text>(
         find.descendant(
-          of: find.byType(DemoTile),
-          matching: find.text('Demo tile 1'),
+          of: find.byType(HomeRowCard),
+          matching: find.text('The Grand Adventure'),
         ),
       );
       expect(

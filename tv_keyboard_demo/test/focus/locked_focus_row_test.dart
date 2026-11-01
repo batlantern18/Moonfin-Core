@@ -5,14 +5,19 @@ import 'package:tv_keyboard_demo/src/focus/hub_focus_memory.dart';
 import 'package:tv_keyboard_demo/src/focus/locked_focus_row.dart';
 
 class _Options {
-  _Options({this.onTap, this.onLongPress, this.onVerticalNavigation,
-      this.onBack, this.onLeftEdge, this.onRightEdge, this.items});
+  _Options({
+    this.onTap,
+    this.onLongPress,
+    this.onVerticalNavigation,
+    this.onBack,
+    this.onRightEdge,
+    this.items,
+  });
 
   final void Function(int index, int item)? onTap;
   final void Function(int index, int item)? onLongPress;
   final LockedFocusVerticalNav? onVerticalNavigation;
   final VoidCallback? onBack;
-  final VoidCallback? onLeftEdge;
   final VoidCallback? onRightEdge;
   final List<int>? items;
 }
@@ -20,30 +25,34 @@ class _Options {
 final GlobalKey<LockedFocusRowState<int>> _rowKey =
     GlobalKey<LockedFocusRowState<int>>();
 
-Future<void> pumpRow(
+Future<void> _pumpRow(
   WidgetTester tester, {
-  _Options options = const _Options(),
+  _Options? options,
   int count = 6,
+  TextDirection direction = TextDirection.ltr,
 }) async {
+  options ??= _Options();
   await tester.pumpWidget(
     MaterialApp(
-      home: Scaffold(
-        body: LockedFocusRow<int>(
-          key: _rowKey,
-          hubKey: 'test-row',
-          itemExtent: 100,
-          itemSpacing: 10,
-          height: 80,
-          items: options.items ?? List<int>.generate(count, (i) => i),
-          onTap: options.onTap,
-          onLongPress: options.onLongPress,
-          onVerticalNavigation: options.onVerticalNavigation,
-          onLeftEdge: options.onLeftEdge,
-          onRightEdge: options.onRightEdge,
-          onBack: options.onBack,
-          builder: (context, item, index, focused) => Text(
-            'Card $index${focused ? '<' : ''}',
-            textDirection: TextDirection.ltr,
+      home: Directionality(
+        textDirection: direction,
+        child: Scaffold(
+          body: LockedFocusRow<int>(
+            key: _rowKey,
+            hubKey: 'test-row',
+            itemExtent: 100,
+            itemSpacing: 10,
+            height: 80,
+            items: options.items ?? List<int>.generate(count, (i) => i),
+            onTap: options.onTap,
+            onLongPress: options.onLongPress,
+            onVerticalNavigation: options.onVerticalNavigation,
+            onRightEdge: options.onRightEdge,
+            onBack: options.onBack,
+            itemBuilder: (context, item, index, focused) => Text(
+              'Card $index${focused ? '<' : ''}',
+              textDirection: TextDirection.ltr,
+            ),
           ),
         ),
       ),
@@ -56,9 +65,10 @@ void main() {
   setUp(HubFocusMemory.clearAll);
   tearDown(HubFocusMemory.clearAll);
 
-  testWidgets('taking focus parks on index 0 and marks the card focused',
-      (tester) async {
-    await pumpRow(tester);
+  testWidgets('taking focus parks on index 0 and marks the card focused', (
+    tester,
+  ) async {
+    await _pumpRow(tester);
     final row = _rowKey.currentState!;
     row.requestFocusAt(0);
     await tester.pumpAndSettle();
@@ -69,7 +79,7 @@ void main() {
   });
 
   testWidgets('right and left keys move the focused card', (tester) async {
-    await pumpRow(tester);
+    await _pumpRow(tester);
     final row = _rowKey.currentState!;
     row.requestFocusAt(0);
     await tester.pumpAndSettle();
@@ -84,9 +94,25 @@ void main() {
     expect(row.focusedIndex, 0);
   });
 
-  testWidgets('moving leaves the row focused and never releases it',
-      (tester) async {
-    await pumpRow(tester);
+  testWidgets('RTL reverses horizontal row navigation', (tester) async {
+    await _pumpRow(tester, direction: TextDirection.rtl);
+    final row = _rowKey.currentState!;
+    row.requestFocusAt(0);
+    await tester.pumpAndSettle();
+
+    await tester.sendKeyDownEvent(LogicalKeyboardKey.arrowLeft);
+    await tester.pumpAndSettle();
+    expect(row.focusedIndex, 1);
+
+    await tester.sendKeyDownEvent(LogicalKeyboardKey.arrowRight);
+    await tester.pumpAndSettle();
+    expect(row.focusedIndex, 0);
+  });
+
+  testWidgets('moving leaves the row focused and never releases it', (
+    tester,
+  ) async {
+    await _pumpRow(tester);
     final row = _rowKey.currentState!;
     row.requestFocusAt(2);
     await tester.pumpAndSettle();
@@ -102,7 +128,7 @@ void main() {
 
   testWidgets('select taps the focused card exactly once', (tester) async {
     final tapped = <int>[];
-    await pumpRow(
+    await _pumpRow(
       tester,
       options: _Options(onTap: (i, item) => tapped.add(item)),
     );
@@ -116,10 +142,12 @@ void main() {
     expect(tapped, [3]);
   });
 
-  testWidgets('holding select long-presses; the up does not tap', (tester) async {
+  testWidgets('holding select long-presses; the up does not tap', (
+    tester,
+  ) async {
     final tapped = <int>[];
     final longPressed = <int>[];
-    await pumpRow(
+    await _pumpRow(
       tester,
       options: _Options(
         onTap: (i, item) => tapped.add(item),
@@ -139,7 +167,7 @@ void main() {
 
   testWidgets('the context menu key long-presses immediately', (tester) async {
     final longPressed = <int>[];
-    await pumpRow(
+    await _pumpRow(
       tester,
       options: _Options(onLongPress: (i, item) => longPressed.add(item)),
     );
@@ -151,10 +179,11 @@ void main() {
     expect(longPressed, [4]);
   });
 
-  testWidgets('the last card consumes right and fires the right edge',
-      (tester) async {
+  testWidgets('the last card consumes right and fires the right edge', (
+    tester,
+  ) async {
     var edge = 0;
-    await pumpRow(tester, options: _Options(onRightEdge: () => edge++));
+    await _pumpRow(tester, options: _Options(onRightEdge: () => edge++));
     final row = _rowKey.currentState!;
     row.requestFocusAt(5);
     await tester.pumpAndSettle();
@@ -165,9 +194,10 @@ void main() {
     expect(edge, 1);
   });
 
-  testWidgets('the first card consumes left when no edge callback is given',
-      (tester) async {
-    await pumpRow(tester);
+  testWidgets('the first card consumes left when no edge callback is given', (
+    tester,
+  ) async {
+    await _pumpRow(tester);
     final row = _rowKey.currentState!;
     row.requestFocusAt(0);
     await tester.pumpAndSettle();
@@ -179,12 +209,14 @@ void main() {
 
   testWidgets('up/down navigation delegates to the screen', (tester) async {
     final calls = <bool>[];
-    await pumpRow(
+    await _pumpRow(
       tester,
-      options: _Options(onVerticalNavigation: (up) {
-        calls.add(up);
-        return up;
-      }),
+      options: _Options(
+        onVerticalNavigation: (up) {
+          calls.add(up);
+          return up;
+        },
+      ),
     );
     _rowKey.currentState!.requestFocusAt(0);
     await tester.pumpAndSettle();
@@ -204,7 +236,7 @@ void main() {
 
   testWidgets('back is handled through the row', (tester) async {
     var backs = 0;
-    await pumpRow(tester, options: _Options(onBack: () => backs++));
+    await _pumpRow(tester, options: _Options(onBack: () => backs++));
     _rowKey.currentState!.requestFocusAt(0);
     await tester.pumpAndSettle();
 
@@ -216,20 +248,18 @@ void main() {
   });
 
   testWidgets('focus comes back to the hub slot it left', (tester) async {
-    await pumpRow(tester);
+    await _pumpRow(tester);
     final row = _rowKey.currentState!;
     row.requestFocusAt(4);
     await tester.pumpAndSettle();
 
     // Park focus elsewhere, then return to the row.
     final decoy = Focus(debugLabel: 'decoy', child: const SizedBox());
-    await tester.pumpWidget(
-      MaterialApp(home: Scaffold(body: decoy)),
-    );
+    await tester.pumpWidget(MaterialApp(home: Scaffold(body: decoy)));
     await tester.pumpAndSettle();
-    decoy.dispose();
 
     expect(HubFocusMemory.peek('test-row'), 4);
+    await _pumpRow(tester);
     _rowKey.currentState!.requestFocusFromMemory();
     await tester.pumpAndSettle();
     expect(_rowKey.currentState!.focusedIndex, 4);
@@ -237,7 +267,7 @@ void main() {
   });
 
   testWidgets('an empty row does not break keys or focus', (tester) async {
-    await pumpRow(tester, options: _Options(items: const []));
+    await _pumpRow(tester, options: _Options(items: const []));
     final row = _rowKey.currentState!;
     row.requestFocusFromMemory();
     await tester.pumpAndSettle();

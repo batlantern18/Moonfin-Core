@@ -4,13 +4,13 @@ import 'package:tv_keyboard_demo/src/focus/dpad_keys.dart';
 
 /// One key down event for [key], the event shape a real remote sends.
 KeyDownEvent _down(LogicalKeyboardKey key) => KeyDownEvent(
-  physicalKey: key.physicalKeys.first,
+  physicalKey: PhysicalKeyboardKey.space,
   logicalKey: key,
   timeStamp: Duration.zero,
 );
 
 KeyUpEvent _up(LogicalKeyboardKey key) => KeyUpEvent(
-  physicalKey: key.physicalKeys.first,
+  physicalKey: PhysicalKeyboardKey.space,
   logicalKey: key,
   timeStamp: Duration.zero,
 );

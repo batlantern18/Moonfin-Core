@@ -1,23 +1,23 @@
 import 'package:fake_async/fake_async.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:tv_keyboard_demo/src/focus/dpad_keys.dart';
 import 'package:tv_keyboard_demo/src/focus/key_event_utils.dart';
 
 KeyEvent _down(LogicalKeyboardKey key) => KeyDownEvent(
-  physicalKey: key.physicalKeys.first,
+  physicalKey: PhysicalKeyboardKey.space,
   logicalKey: key,
   timeStamp: Duration.zero,
 );
 
 KeyEvent _up(LogicalKeyboardKey key) => KeyUpEvent(
-  physicalKey: key.physicalKeys.first,
+  physicalKey: PhysicalKeyboardKey.space,
   logicalKey: key,
   timeStamp: const Duration(milliseconds: 10),
 );
 
 KeyEvent _repeat(LogicalKeyboardKey key) => KeyRepeatEvent(
-  physicalKey: key.physicalKeys.first,
+  physicalKey: PhysicalKeyboardKey.space,
   logicalKey: key,
   timeStamp: const Duration(milliseconds: 200),
 );
@@ -26,9 +26,12 @@ void main() {
   group('handleOneShotSelect', () {
     test('select down fires the callback once and is handled', () {
       var fired = 0;
-      expect(handleOneShotSelect(_down(LogicalKeyboardKey.select), () {
-        fired++;
-      }), KeyEventResult.handled);
+      expect(
+        handleOneShotSelect(_down(LogicalKeyboardKey.select), () {
+          fired++;
+        }),
+        KeyEventResult.handled,
+      );
       expect(fired, 1);
     });
 
@@ -41,6 +44,26 @@ void main() {
       expect(
         // A second stray up with no pending press is not consumed.
         handleOneShotSelect(_up(LogicalKeyboardKey.select), () {}),
+        KeyEventResult.ignored,
+      );
+    });
+
+    test('a lost release does not suppress a different select key', () {
+      // Enter is pressed, but its release is lost when focus changes. A later
+      // Space press/release must still pair with Space rather than consuming
+      // the stale Enter press.
+      handleOneShotSelect(_down(LogicalKeyboardKey.enter), () {});
+      handleOneShotSelect(_down(LogicalKeyboardKey.space), () {});
+      expect(
+        handleOneShotSelect(_up(LogicalKeyboardKey.space), () {}),
+        KeyEventResult.handled,
+      );
+      expect(
+        handleOneShotSelect(_up(LogicalKeyboardKey.enter), () {}),
+        KeyEventResult.handled,
+      );
+      expect(
+        handleOneShotSelect(_up(LogicalKeyboardKey.enter), () {}),
         KeyEventResult.ignored,
       );
     });
@@ -65,11 +88,19 @@ void main() {
         LogicalKeyboardKey.space,
       ]) {
         var fired = 0;
-        expect(handleOneShotSelect(_down(key), () { fired++; }),
-            KeyEventResult.handled);
+        expect(
+          handleOneShotSelect(_down(key), () {
+            fired++;
+          }),
+          KeyEventResult.handled,
+        );
         expect(fired, 1, reason: key.debugName!);
-        expect(handleOneShotSelect(_up(key), () { fired++; }),
-            KeyEventResult.handled);
+        expect(
+          handleOneShotSelect(_up(key), () {
+            fired++;
+          }),
+          KeyEventResult.handled,
+        );
         expect(fired, 1, reason: key.debugName!);
       }
     });
@@ -78,9 +109,12 @@ void main() {
   group('handleBackKeyAction', () {
     test('back down fires the callback and is handled', () {
       var backed = 0;
-      expect(handleBackKeyAction(_down(LogicalKeyboardKey.escape), () {
-        backed++;
-      }), KeyEventResult.handled);
+      expect(
+        handleBackKeyAction(_down(LogicalKeyboardKey.escape), () {
+          backed++;
+        }),
+        KeyEventResult.handled,
+      );
       expect(backed, 1);
     });
 
@@ -197,24 +231,15 @@ void main() {
   group('consumeIfEdge', () {
     test('the key at an edge is consumed, the others are not', () {
       expect(
-        consumeIfEdge(
-          _down(LogicalKeyboardKey.arrowLeft),
-          atLeftEdge: true,
-        ),
+        consumeIfEdge(_down(LogicalKeyboardKey.arrowLeft), atLeftEdge: true),
         KeyEventResult.handled,
       );
       expect(
-        consumeIfEdge(
-          _down(LogicalKeyboardKey.arrowRight),
-          atLeftEdge: true,
-        ),
+        consumeIfEdge(_down(LogicalKeyboardKey.arrowRight), atLeftEdge: true),
         KeyEventResult.ignored,
       );
       expect(
-        consumeIfEdge(
-          _down(LogicalKeyboardKey.arrowRight),
-          atRightEdge: true,
-        ),
+        consumeIfEdge(_down(LogicalKeyboardKey.arrowRight), atRightEdge: true),
         KeyEventResult.handled,
       );
       expect(
@@ -254,9 +279,7 @@ void main() {
       handler.dispose();
     });
 
-    KeyEventResult handle(
-      KeyEvent event,
-    ) => handler.handleKeyEvent(
+    KeyEventResult handle(KeyEvent event) => handler.handleKeyEvent(
       event,
       onTap: () => taps++,
       onLongPress: () => longPresses++,
@@ -264,26 +287,25 @@ void main() {
 
     test('a quick select taps on key up', () {
       fakeAsync((async) {
-        expect(handle(_down(LogicalKeyboardKey.select)),
-            KeyEventResult.handled);
-        expect(taps, 0);
-        async.elapse(
-          const Duration(milliseconds: 100),
+        expect(
+          handle(_down(LogicalKeyboardKey.select)),
+          KeyEventResult.handled,
         );
+        expect(taps, 0);
+        async.elapse(const Duration(milliseconds: 100));
         expect(handle(_up(LogicalKeyboardKey.select)), KeyEventResult.handled);
         expect(taps, 1);
         expect(longPresses, 0);
       });
     });
 
-    test('holding select past 500ms long-presses and the up does nothing',
-        () {
+    test('holding select past 500ms long-presses and the up does nothing', () {
       fakeAsync((async) {
-        expect(handle(_down(LogicalKeyboardKey.select)),
-            KeyEventResult.handled);
-        async.elapse(
-          const Duration(milliseconds: 550),
+        expect(
+          handle(_down(LogicalKeyboardKey.select)),
+          KeyEventResult.handled,
         );
+        async.elapse(const Duration(milliseconds: 550));
         expect(longPresses, 1);
         expect(handle(_up(LogicalKeyboardKey.select)), KeyEventResult.handled);
         expect(taps, 0);
@@ -294,31 +316,29 @@ void main() {
     test('repeats are held while the press is down', () {
       fakeAsync((async) {
         handle(_down(LogicalKeyboardKey.select));
-        async.elapse(
-          const Duration(milliseconds: 100),
+        async.elapse(const Duration(milliseconds: 100));
+        expect(
+          handle(_repeat(LogicalKeyboardKey.select)),
+          KeyEventResult.handled,
         );
-        expect(handle(_repeat(LogicalKeyboardKey.select)),
-            KeyEventResult.handled);
         expect(taps, 0);
       });
     });
 
     test('the context menu key long-presses immediately', () {
       fakeAsync((async) {
-        expect(handle(_down(LogicalKeyboardKey.contextMenu)),
-            KeyEventResult.handled);
+        expect(
+          handle(_down(LogicalKeyboardKey.contextMenu)),
+          KeyEventResult.handled,
+        );
         expect(longPresses, 1);
         expect(taps, 0);
       });
     });
 
     test('a select up with no seen down is ignored', () {
-      expect(
-        handle(_up(LogicalKeyboardKey.select)),
-        KeyEventResult.ignored,
-      );
+      expect(handle(_up(LogicalKeyboardKey.select)), KeyEventResult.ignored);
       expect(taps, 0);
     });
   });
 }
-

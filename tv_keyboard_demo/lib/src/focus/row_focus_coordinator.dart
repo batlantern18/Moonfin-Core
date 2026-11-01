@@ -1,7 +1,6 @@
 import 'package:flutter/widgets.dart';
 
 import 'locked_focus_row.dart';
-import 'scroll_utils.dart';
 
 /// One vertically-ordered focus stop on a row-based screen: either a plain
 /// [FocusNode] (hero CTA, filter pill) or a [LockedFocusRow] shelf, which

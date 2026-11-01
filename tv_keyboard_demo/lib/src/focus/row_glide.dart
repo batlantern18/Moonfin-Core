@@ -32,7 +32,7 @@ class RowGlide extends ChangeNotifier {
   final _gap = _Spring();
   int _target = 0;
   bool _held = false;
-  bool _active = false;
+  bool active = false;
 
   /// How far the card at [index] has grown, from 0 to 1. Only the cards on
   /// either side of the focus position are ever above 0.
@@ -40,10 +40,6 @@ class RowGlide extends ChangeNotifier {
       _open.value * math.max(0.0, 1 - (index - _position.value).abs());
 
   /// Whether the row has focus. Its card only grows while it does.
-  set active(bool value) => _active = value;
-
-  bool get active => _active;
-
   /// Set while a direction key repeats, which folds the row.
   set held(bool value) => _held = value;
 
@@ -83,9 +79,8 @@ class RowGlide extends ChangeNotifier {
     // A critically damped spring is within 5% of its target after
     // 4.74 / stiffness seconds.
     final stiffness =
-        4.74 * Duration.microsecondsPerSecond / settle.inMicroseconds
-            as double;
-    final openTarget = _active && !_held ? 1.0 : 0.0;
+        4.74 * Duration.microsecondsPerSecond / settle.inMicroseconds;
+    final openTarget = active && !_held ? 1.0 : 0.0;
     _position.step(_target.toDouble(), stiffness, dt);
     _open.step(
       openTarget,
