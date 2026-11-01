@@ -95,6 +95,6 @@ class ThemeScope extends InheritedNotifier<ThemeRegistry> {
       scope != null,
       'ThemeModel.of() called outside a ThemeScope; wrap the app root.',
     );
-    return scope!.notifier.current;
+    return scope!.notifier!.current;
   }
 }
