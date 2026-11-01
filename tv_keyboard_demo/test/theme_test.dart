@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:tv_keyboard_demo/main.dart';
 import 'package:tv_keyboard_demo/src/theme/builtin_themes.dart';
 import 'package:tv_keyboard_demo/src/theme/theme_model.dart';
 import 'package:tv_keyboard_demo/src/theme/theme_registry.dart';
@@ -233,6 +234,113 @@ void main() {
       await tester.pump();
 
       expect(observed!.id, BuiltInThemes.highContrast.id);
+    });
+  });
+
+  group('app focus visuals follow the theme', () {
+    BoxDecoration focusedTileDecoration(WidgetTester tester) {
+      final AnimatedContainer container = tester.widget<AnimatedContainer>(
+        find.descendant(
+          of: find.byType(DemoTile),
+          matching: find.byType(AnimatedContainer),
+        ).first,
+      );
+      return container.decoration as BoxDecoration;
+    }
+
+    AnimatedScale focusedTileScale(WidgetTester tester) {
+      return tester.widget<AnimatedScale>(
+        find.descendant(
+          of: find.byType(DemoTile),
+          matching: find.byType(AnimatedScale),
+        ).first,
+      );
+    }
+
+    testWidgets('switching themes re-skins the focused tile everywhere',
+        (WidgetTester tester) async {
+      final ThemeRegistry registry = ThemeRegistry();
+      await tester.pumpWidget(TvKeyboardDemoApp(registry: registry));
+      await tester.pumpAndSettle();
+
+      // Light: borderOnly ring in the accent color, fill matches surface.
+      registry.switchTheme(BuiltInThemes.light.id);
+      await tester.pumpAndSettle();
+      BoxDecoration decoration = focusedTileDecoration(tester);
+      final Border lightBorder = decoration.border as Border;
+      expect(lightBorder.top.color, BuiltInThemes.light.accentColor);
+      expect(lightBorder.top.width, BuiltInThemes.light.focusBorderWidth);
+      expect(decoration.color, BuiltInThemes.light.surfaceColor);
+      expect(
+        decoration.borderRadius,
+        BorderRadius.circular(BuiltInThemes.light.focusBorderRadius),
+      );
+
+      AnimatedScale animatedScale = focusedTileScale(tester);
+      expect(animatedScale.scale, BuiltInThemes.light.focusScale);
+      expect(animatedScale.duration, BuiltInThemes.light.focusAnimationDuration);
+
+      // HighContrast: solid fill, thick bright ring, bigger scale, faster.
+      registry.switchTheme(BuiltInThemes.highContrast.id);
+      await tester.pumpAndSettle();
+      decoration = focusedTileDecoration(tester);
+      final Border contrastBorder = decoration.border as Border;
+      expect(decoration.color, BuiltInThemes.highContrast.focusBackgroundColor);
+      expect(
+        contrastBorder.top.color,
+        BuiltInThemes.highContrast.focusColor,
+      );
+      expect(
+        contrastBorder.top.width,
+        BuiltInThemes.highContrast.focusBorderWidth,
+      );
+      expect(decoration.borderRadius,
+          BorderRadius.circular(BuiltInThemes.highContrast.focusBorderRadius));
+
+      animatedScale = focusedTileScale(tester);
+      expect(animatedScale.scale, BuiltInThemes.highContrast.focusScale);
+      expect(
+        animatedScale.duration,
+        BuiltInThemes.highContrast.focusAnimationDuration,
+      );
+
+      // tvOS: translucent glass fill, hairline ring, glow.
+      registry.switchTheme(BuiltInThemes.tvosStyle.id);
+      await tester.pumpAndSettle();
+      decoration = focusedTileDecoration(tester);
+      final Border tvosBorder = decoration.border as Border;
+      expect(decoration.color!.a, lessThan(1.0));
+      expect(tvosBorder.top.color, BuiltInThemes.tvosStyle.focusColor);
+      expect(tvosBorder.top.width, BuiltInThemes.tvosStyle.focusBorderWidth);
+      expect(decoration.boxShadow, isNotEmpty);
+
+      animatedScale = focusedTileScale(tester);
+      expect(animatedScale.scale, BuiltInThemes.tvosStyle.focusScale);
+      expect(
+        animatedScale.duration,
+        BuiltInThemes.tvosStyle.focusAnimationDuration,
+      );
+    });
+
+    testWidgets('focused tile uses the focus foreground color',
+        (WidgetTester tester) async {
+      final ThemeRegistry registry = ThemeRegistry();
+      await tester.pumpWidget(TvKeyboardDemoApp(registry: registry));
+      await tester.pumpAndSettle();
+
+      registry.switchTheme(BuiltInThemes.highContrast.id);
+      await tester.pumpAndSettle();
+
+      final Text text = tester.widget<Text>(
+        find.descendant(
+          of: find.byType(DemoTile),
+          matching: find.text('Demo tile 1'),
+        ),
+      );
+      expect(
+        text.style?.color,
+        BuiltInThemes.highContrast.focusForegroundColor,
+      );
     });
   });
 }

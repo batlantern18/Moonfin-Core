@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import 'src/theme/theme_model.dart';
+import 'src/theme/theme_registry.dart';
+
 void main() {
   runApp(const TvKeyboardDemoApp());
 }
@@ -10,22 +13,30 @@ void main() {
 /// The app intentionally starts on a placeholder screen so the project
 /// structure, analysis setup and build pipeline can be verified end to end
 /// before any of the D-pad focus infrastructure from the spec lands.
+///
+/// [registry] defaults to [ThemeRegistry.instance]; passing a custom one
+/// (with its own themes) is supported for tests and embedding.
 class TvKeyboardDemoApp extends StatelessWidget {
-  const TvKeyboardDemoApp({super.key});
+  const TvKeyboardDemoApp({super.key, this.registry});
+
+  final ThemeRegistry? registry;
+
+  ThemeRegistry get _themeRegistry => registry ?? ThemeRegistry.instance;
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      title: 'TV Keyboard Demo',
-      debugShowCheckedModeBanner: false,
-      theme: ThemeData(
-        useMaterial3: true,
-        colorScheme: ColorScheme.fromSeed(
-          seedColor: const Color(0xFF1E88E5),
-          brightness: Brightness.dark,
+    return ThemeScope(
+      registry: _themeRegistry,
+      child: ListenableBuilder(
+        listenable: _themeRegistry,
+        builder: (BuildContext context, Widget? child) => MaterialApp(
+          title: 'TV Keyboard Demo',
+          debugShowCheckedModeBanner: false,
+          theme: _themeRegistry.current.toMaterialTheme(),
+          home: child,
         ),
+        child: const HomeScreen(),
       ),
-      home: const HomeScreen(),
     );
   }
 }
@@ -189,32 +200,25 @@ class _DemoTileState extends State<DemoTile> {
         widget.onFocusChange(focused);
       },
       onKeyEvent: _handleKeyEvent,
-      child: AnimatedScale(
-        scale: _focused ? 1.08 : 1.0,
-        duration: const Duration(milliseconds: 150),
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 150),
-          alignment: Alignment.center,
-          decoration: BoxDecoration(
-            color: _focused
-                ? theme.colorScheme.primaryContainer
-                : theme.colorScheme.surfaceContainerHighest,
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(
-              color:
-                  _focused ? theme.colorScheme.primary : theme.colorScheme.outlineVariant,
-              width: _focused ? 3 : 1,
+      child: Builder(
+        builder: (BuildContext context) {
+          final ThemeModel themeModel = ThemeModel.of(context);
+          return AnimatedScale(
+            scale: _focused ? themeModel.focusScale : 1.0,
+            duration: themeModel.focusAnimationDuration,
+            child: AnimatedContainer(
+              duration: themeModel.focusAnimationDuration,
+              alignment: Alignment.center,
+              decoration: themeModel.focusDecoration(focused: _focused),
+              child: Text(
+                widget.label,
+                style: theme.textTheme.titleMedium?.copyWith(
+                  color: themeModel.resolveForegroundColor(focused: _focused),
+                ),
+              ),
             ),
-          ),
-          child: Text(
-            widget.label,
-            style: theme.textTheme.titleMedium?.copyWith(
-              color: _focused
-                  ? theme.colorScheme.onPrimaryContainer
-                  : theme.colorScheme.onSurfaceVariant,
-            ),
-          ),
-        ),
+          );
+        },
       ),
     );
   }
