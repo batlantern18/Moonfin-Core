@@ -59,7 +59,6 @@ class SettingsScreen extends StatelessWidget {
                 for (final speed in DemoAnimationSpeed.values)
                   DpadRadioListTile<DemoAnimationSpeed>(
                     value: speed,
-                    autofocus: speed == DemoAnimationSpeed.slow,
                     title: Text(switch (speed) {
                       DemoAnimationSpeed.slow => 'Slow',
                       DemoAnimationSpeed.normal => 'Normal',
@@ -112,7 +111,6 @@ class SettingsScreen extends StatelessWidget {
           const SizedBox(height: 8),
           for (var i = 0; i < registry.themes.length; i++)
             DpadListTile(
-              autofocus: i == 0,
               selected: registry.themes[i].id == currentTheme.id,
               leading: const Icon(Icons.palette_outlined),
               title: Text(registry.themes[i].name),

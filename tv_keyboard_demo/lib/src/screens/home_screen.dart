@@ -8,6 +8,7 @@ import '../focus/row_focus_coordinator.dart';
 import '../theme/theme_registry.dart';
 import 'demo_settings.dart';
 import 'list_grid_screens.dart';
+import 'search_screen.dart';
 import 'utility_screens.dart';
 
 class HomeScreen extends StatefulWidget {
@@ -31,7 +32,7 @@ class _HomeScreenState extends State<HomeScreen> {
     (_) => RowGlide()..growth = 28,
   );
   final List<FocusNode> _navItems = List<FocusNode>.generate(
-    4,
+    5,
     (index) => FocusNode(debugLabel: 'navigation-$index'),
   );
   int _selectedNavigation = 0;
@@ -199,6 +200,7 @@ class _HomeScreenState extends State<HomeScreen> {
       final Widget screen = switch (index) {
         1 => const ListScreen(),
         2 => const GridScreen(),
+        3 => const SearchScreen(),
         _ => const SettingsScreen(),
       };
       Navigator.of(
@@ -210,7 +212,7 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   Widget build(BuildContext context) {
     _rebuildEntries();
-    final navLabels = ['Home', 'Lists', 'Grid', 'Settings'];
+    final navLabels = ['Home', 'Lists', 'Grid', 'Search', 'Settings'];
     final settings = DemoSettingsScope.of(context);
     List<String> sampleItems(List<String> full, String emptyLabel) =>
         switch (settings.dataMode) {
@@ -231,15 +233,29 @@ class _HomeScreenState extends State<HomeScreen> {
                   Expanded(
                     child: Text(
                       'Moonfin TV Keyboard Demo',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                       style: Theme.of(context).textTheme.headlineMedium,
                     ),
                   ),
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.end,
-                    children: [
-                      Text('Input: ${InputModeTracker.of(context).name}'),
-                      Text('Focused: $_focusedLabel'),
-                    ],
+                  SizedBox(
+                    width: 260,
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.end,
+                      children: [
+                        Text(
+                          'Input: ${InputModeTracker.of(context).name}',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        Text(
+                          'Focused: $_focusedLabel',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ],
+                    ),
                   ),
                 ],
               ),
@@ -299,6 +315,26 @@ class _HomeScreenState extends State<HomeScreen> {
                             }
                           },
                           onKeyEvent: (_, event) {
+                            if ((event is KeyDownEvent ||
+                                    event is KeyRepeatEvent) &&
+                                (event.logicalKey ==
+                                        LogicalKeyboardKey.arrowLeft ||
+                                    event.logicalKey ==
+                                        LogicalKeyboardKey.arrowRight)) {
+                              final isRtl =
+                                  Directionality.of(context) ==
+                                  TextDirection.rtl;
+                              final movesForward =
+                                  (event.logicalKey ==
+                                      LogicalKeyboardKey.arrowRight) !=
+                                  isRtl;
+                              final nextIndex = i + (movesForward ? 1 : -1);
+                              if (nextIndex >= 0 &&
+                                  nextIndex < _navItems.length) {
+                                _navItems[nextIndex].requestFocus();
+                              }
+                              return KeyEventResult.handled;
+                            }
                             if (event is KeyDownEvent &&
                                 (event.logicalKey ==
                                         LogicalKeyboardKey.select ||

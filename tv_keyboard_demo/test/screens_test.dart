@@ -7,6 +7,8 @@ import 'package:tv_keyboard_demo/src/theme/builtin_themes.dart';
 import 'package:tv_keyboard_demo/src/theme/theme_registry.dart';
 import 'package:tv_keyboard_demo/src/screens/demo_settings.dart';
 import 'package:tv_keyboard_demo/src/theme/theme_model.dart';
+import 'helpers/dpad_test_utils.dart';
+import 'package:tv_keyboard_demo/src/focus/platform_detection.dart';
 
 void main() {
   testWidgets('settings switch themes and open dialogs and about', (
@@ -137,5 +139,26 @@ void main() {
     await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
     await tester.pumpAndSettle();
     expect(find.text('Focused: No Popular Now items'), findsOneWidget);
+  });
+
+  testWidgets('search filters results and opens a selected title with D-pad', (
+    tester,
+  ) async {
+    TvPlatformDetection.setTvMode(true);
+    addTearDown(TvPlatformDetection.reset);
+    await tester.pumpWidget(TvKeyboardDemoApp(registry: ThemeRegistry()));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.widgetWithText(OutlinedButton, 'Search'));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(TextField), 'moon');
+    await tester.pumpAndSettle();
+    expect(find.text('Moonlit Harbor'), findsOneWidget);
+
+    await pressDpadKey(tester, LogicalKeyboardKey.arrowDown);
+    expect(focusedTextLabel(), 'Moonlit Harbor');
+    await pressDpadKey(tester, LogicalKeyboardKey.select);
+    expect(find.byType(AlertDialog), findsOneWidget);
+    expect(find.text('Selected from search results.'), findsOneWidget);
   });
 }

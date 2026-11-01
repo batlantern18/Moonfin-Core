@@ -80,7 +80,7 @@ It replicates Moonfin-Core's focus system with zero Moonfin-Core imports:
 - **Scroll utilities** — `revealInNearestScrollable`,
   `stepScrollWithinContextBounds`, `scrollListToIndex`, `scrollFocusIntoView`.
 
-The app includes horizontal home rows with spring glide, list and grid
+The app includes horizontal home rows with spring glide, list, grid, and search
 navigation, navigable context menus and dialogs, runtime theme switching with
 persistent selection, focus-mode controls, RTL preview, edge-case sample data,
 and an About screen. Tests live in `test/` and run with the standard headless
@@ -92,7 +92,7 @@ and an About screen. Tests live in `test/` and run with the standard headless
 | --- | --- |
 | `lib/main.dart` | App entry point and theme registry wiring |
 | `lib/src/focus/` | The replicated focus infrastructure (see above) |
-| `lib/src/screens/` | Home, list/grid, settings, dialog, and about screens |
+| `lib/src/screens/` | Home, list/grid, search, settings, dialog, and about screens |
 | `lib/src/theme/` | Theme model, registry, and four built-in themes |
 | `test/` | Focus, theme, screen, and integration tests |
 | `android/` | Android/TV platform scaffolding (Gradle, manifest with leanback launcher) |

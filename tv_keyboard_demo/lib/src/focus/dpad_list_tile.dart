@@ -132,6 +132,8 @@ class _DpadListTileKeyHandlerState extends State<_DpadListTileKeyHandler> {
 
   KeyEventResult _onKeyEvent(FocusNode _, KeyEvent event) {
     if (!widget.enabled) return KeyEventResult.ignored;
+    final traversal = _traverseDpadFocus(context, event);
+    if (traversal != KeyEventResult.ignored) return traversal;
     if (event.logicalKey.isContextMenuKey && widget.onLongPress != null) {
       if (event is KeyDownEvent) widget.onLongPress!();
       return KeyEventResult.handled;
@@ -216,6 +218,8 @@ class DpadSwitchListTile extends StatelessWidget {
       return Focus(
         skipTraversal: true,
         onKeyEvent: (_, event) {
+          final traversal = _traverseDpadFocus(context, event);
+          if (traversal != KeyEventResult.ignored) return traversal;
           if (!event.logicalKey.isSelectKey || !canToggle) {
             return KeyEventResult.ignored;
           }
@@ -234,6 +238,25 @@ class DpadSwitchListTile extends StatelessWidget {
       onChanged: canToggle ? onChanged : null,
     );
   }
+}
+
+KeyEventResult _traverseDpadFocus(BuildContext context, KeyEvent event) {
+  if (event is! KeyDownEvent && event is! KeyRepeatEvent) {
+    return KeyEventResult.ignored;
+  }
+  final direction = switch (event.logicalKey) {
+    LogicalKeyboardKey.arrowUp => TraversalDirection.up,
+    LogicalKeyboardKey.arrowDown => TraversalDirection.down,
+    LogicalKeyboardKey.arrowLeft => TraversalDirection.left,
+    LogicalKeyboardKey.arrowRight => TraversalDirection.right,
+    _ => null,
+  };
+  if (direction == null) return KeyEventResult.ignored;
+
+  final current = FocusManager.instance.primaryFocus;
+  if (current == null) return KeyEventResult.handled;
+  FocusTraversalGroup.of(context).inDirection(current, direction);
+  return KeyEventResult.handled;
 }
 
 /// A radio group that retains Flutter's native arrow-to-select behavior off TV
