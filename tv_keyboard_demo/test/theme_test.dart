@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:tv_keyboard_demo/src/theme/builtin_themes.dart';
 import 'package:tv_keyboard_demo/src/theme/theme_model.dart';
+import 'package:tv_keyboard_demo/src/theme/theme_registry.dart';
 
 void main() {
   group('ThemeModel', () {
@@ -142,6 +143,96 @@ void main() {
         BuiltInThemes.light.toMaterialTheme().colorScheme.surface,
         BuiltInThemes.light.surfaceColor,
       );
+    });
+  });
+
+  group('ThemeRegistry', () {
+    test('starts on the dark theme and lists all built-in themes', () {
+      final ThemeRegistry registry = ThemeRegistry();
+
+      expect(registry.current, BuiltInThemes.dark);
+      expect(registry.themes, BuiltInThemes.all);
+      expect(registry.themeById('dark'), BuiltInThemes.dark);
+      expect(registry.themeById('nope'), isNull);
+    });
+
+    test('switching notifies listeners and changes current', () {
+      final ThemeRegistry registry = ThemeRegistry();
+      expect(registry.current.id, BuiltInThemes.dark.id);
+
+      var notifications = 0;
+      final void Function() listener = () => notifications++;
+      registry.addListener(listener);
+
+      registry.switchTheme(BuiltInThemes.light.id);
+      registry.switchTheme(BuiltInThemes.light.id);
+
+      expect(registry.current, BuiltInThemes.light);
+      expect(notifications, 1);
+    });
+
+    test('switching to an unregistered id throws', () {
+      final ThemeRegistry registry = ThemeRegistry();
+
+      expect(
+        () => registry.switchTheme('does-not-exist'),
+        throwsArgumentError,
+      );
+      expect(registry.current.id, BuiltInThemes.dark.id);
+    });
+
+    test('a new theme works with no infrastructure changes', () {
+      const ThemeModel custom = ThemeModel(
+        id: 'custom',
+        name: 'Custom',
+        brightness: Brightness.dark,
+        primaryColor: Color(0xFF00E676),
+        accentColor: Color(0xFFFFEA00),
+        surfaceColor: Color(0xFF001F1F),
+        onSurfaceColor: Color(0xFFB9F6CA),
+        focusColor: Color(0xFFFFEA00),
+        focusBackgroundColor: Color(0xFF00695C),
+        focusForegroundColor: Color(0xFFFFFFFF),
+        focusStyle: FocusStyle.solidFill,
+        focusBorderRadius: 20.0,
+        focusAnimationDuration: Duration(milliseconds: 90),
+        focusScale: 1.15,
+        focusBorderWidth: 3.0,
+      );
+      final ThemeRegistry registry = ThemeRegistry(
+        themes: <ThemeModel>[...BuiltInThemes.all, custom],
+        initialThemeId: BuiltInThemes.dark.id,
+      );
+
+      registry.switchTheme('custom');
+
+      expect(registry.current, custom);
+    });
+  });
+
+  group('ThemeScope', () {
+    testWidgets('dependents observe the current theme and rebuild on switch',
+        (WidgetTester tester) async {
+      final ThemeRegistry registry = ThemeRegistry();
+      ThemeModel? observed;
+
+      await tester.pumpWidget(
+        ThemeScope(
+          registry: registry,
+          child: Builder(
+            builder: (BuildContext context) {
+              observed = ThemeModel.of(context);
+              return const SizedBox.shrink();
+            },
+          ),
+        ),
+      );
+      expect(observed!.id, BuiltInThemes.dark.id);
+
+      registry.switchTheme(BuiltInThemes.highContrast.id);
+      await tester.pump();
+
+      expect(observed!.id, BuiltInThemes.highContrast.id);
     });
   });
 }
