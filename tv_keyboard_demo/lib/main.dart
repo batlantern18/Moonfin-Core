@@ -1,7 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import 'src/focus/focus.dart';
+
 void main() {
+  // This app exists for Android TV: the TV layout is not an option, it is
+  // the whole point. Tests stay neutral because they use their own app
+  // roots; widget tests that need TV behavior flip it themselves.
+  TvPlatformDetection.setTvMode(true);
   runApp(const TvKeyboardDemoApp());
 }
 
@@ -15,17 +21,19 @@ class TvKeyboardDemoApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      title: 'TV Keyboard Demo',
-      debugShowCheckedModeBanner: false,
-      theme: ThemeData(
-        useMaterial3: true,
-        colorScheme: ColorScheme.fromSeed(
-          seedColor: const Color(0xFF1E88E5),
-          brightness: Brightness.dark,
+    return InputModeTracker(
+      child: MaterialApp(
+        title: 'TV Keyboard Demo',
+        debugShowCheckedModeBanner: false,
+        theme: ThemeData(
+          useMaterial3: true,
+          colorScheme: ColorScheme.fromSeed(
+            seedColor: const Color(0xFF1E88E5),
+            brightness: Brightness.dark,
+          ),
         ),
+        home: const HomeScreen(),
       ),
-      home: const HomeScreen(),
     );
   }
 }

@@ -46,7 +46,7 @@ class _GlassPressScaleState extends State<GlassPressScale> {
     final longest = math.max(box.size.width, box.size.height);
     if (longest <= 0) return 1.0;
     final grown = (longest + widget.growth) / longest;
-    return grown.clamp(1.0, _kMaxScale);
+    return grown.clamp(1.0, _kMaxScale).toDouble();
   }
 
   void _press() {

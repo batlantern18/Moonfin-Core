@@ -102,7 +102,7 @@ FocusOnKeyEventCallback arrowScrollHandler(
     final target = (position.pixels + delta).clamp(
       position.minScrollExtent,
       position.maxScrollExtent,
-    );
+    ).toDouble();
     unawaited(
       controller.animateTo(
         target,
