@@ -64,7 +64,7 @@ class SuggestionEngine(
 
     /** The word being typed before the cursor, used for replacement length. */
     fun wordPrefix(textBeforeCursor: String): String {
-        val text = textBeforeCursor.takeLast(MAX_PREFIX_LOOKBEHIND)
+        val text = textBeforeCursor.takeLast(MAX_PREFIX_LOOKBEHIND).trimEnd()
         val lastBreak = text.indexOfLast { it.isWhitespace() }
         return if (lastBreak >= 0) text.substring(lastBreak + 1) else text
     }
