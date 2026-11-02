@@ -5,6 +5,7 @@
     <dimen name="space_key_width">188.0dip</dimen>
     <dimen name="keyboard_horizontal_gap">12.0dip</dimen>
     <dimen name="keyboard_vertical_gap">8.0dip</dimen>
+    <dimen name="action_button_height">52.0dip</dimen>
 
     <dimen name="settings_padding">48.0dip</dimen>
     <dimen name="settings_card_radius">8.0dip</dimen>

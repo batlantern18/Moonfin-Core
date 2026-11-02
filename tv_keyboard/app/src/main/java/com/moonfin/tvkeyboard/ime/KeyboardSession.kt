@@ -38,6 +38,9 @@ class KeyboardSession(
     var actionId: Int = EditorInfo.IME_ACTION_UNSPECIFIED
         private set
 
+    var inputType: Int = InputType.TYPE_CLASS_TEXT
+        private set
+
     private var cache = mutableMapOf<String, Keyboard>()
 
     val language: LanguageLayout
@@ -79,6 +82,7 @@ class KeyboardSession(
         }
         actionId = editorActionId(info)
         actionLabel = editorActionLabel(actionId)
+        inputType = info?.inputType ?: InputType.TYPE_CLASS_TEXT
         cache = mutableMapOf()
     }
 
