@@ -29,6 +29,7 @@
     <string name="activation_disabled">Keyboard is not enabled</string>
     <string name="activation_selected">Keyboard is selected</string>
     <string name="activation_not_selected">Keyboard is not selected</string>
+    <string name="activation_hint">Enable Moonfin TV Keyboard in system settings, then choose it as the active keyboard. Use the D-pad to focus a button and press center.</string>
     <string name="action_enable_keyboard">Enable keyboard</string>
     <string name="action_choose_keyboard">Choose keyboard</string>
     <string name="action_refresh">Refresh status</string>

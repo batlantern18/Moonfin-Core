@@ -84,14 +84,14 @@ object KeyboardNavigator {
                 (onRow.ifEmpty { keys.filter { it.index != cur.index } }).minByOrNull { it.left }!!.index
             Direction.UP -> {
                 val pool = onColumn.ifEmpty { keys.filter { it.index != cur.index } }
-                val topMost = pool.minOf { it.top }
-                pool.filter { abs(it.top - topMost) <= EDGE_TOLERANCE }
+                val bottomMost = pool.maxOf { it.bottom }
+                pool.filter { abs(it.bottom - bottomMost) <= EDGE_TOLERANCE }
                     .minByOrNull { abs(it.centerX - cur.centerX) }!!.index
             }
             Direction.DOWN -> {
                 val pool = onColumn.ifEmpty { keys.filter { it.index != cur.index } }
-                val bottomMost = pool.maxOf { it.bottom }
-                pool.filter { abs(it.bottom - bottomMost) <= EDGE_TOLERANCE }
+                val topMost = pool.minOf { it.top }
+                pool.filter { abs(it.top - topMost) <= EDGE_TOLERANCE }
                     .minByOrNull { abs(it.centerX - cur.centerX) }!!.index
             }
         }
