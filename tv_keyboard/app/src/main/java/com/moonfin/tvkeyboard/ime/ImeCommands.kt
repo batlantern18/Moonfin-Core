@@ -12,6 +12,8 @@ sealed class ImeCommand {
     data object MoveLeft : ImeCommand()
     data object MoveRight : ImeCommand()
     data object ToggleShift : ImeCommand()
+    data object LockShift : ImeCommand()
+    data object ToggleMode : ImeCommand()
     data object None : ImeCommand()
 }
 
@@ -33,7 +35,7 @@ object ImeCommandResolver {
         KeyAction.CURSOR_LEFT -> ImeCommand.MoveLeft
         KeyAction.CURSOR_RIGHT -> ImeCommand.MoveRight
         KeyAction.SHIFT -> ImeCommand.ToggleShift
-        KeyAction.MODE_CHANGE,
+        KeyAction.MODE_CHANGE -> ImeCommand.ToggleMode
         KeyAction.LANGUAGE,
         KeyAction.VOICE,
         KeyAction.CLIPBOARD,

@@ -103,23 +103,34 @@ class KeyboardSession(
     fun toggleShift() {
         shift = when (shift) {
             Shift.OFF -> Shift.ON
-            Shift.ON -> Shift.OFF
+            Shift.ON -> Shift.LOCKED
             Shift.LOCKED -> Shift.OFF
         }
     }
 
     fun lockShift() {
-        shift = if (shift == Shift.LOCKED) Shift.OFF else Shift.LOCKED
+        // Long-press Caps Lock: toggle between LOCKED and unlocked (OFF)
+        if (shift == Shift.LOCKED) {
+            shift = Shift.OFF
+        } else if (shift == Shift.ON) {
+            shift = Shift.LOCKED
+        } else {
+            shift = Shift.LOCKED
+        }
     }
 
     fun consumeShift() {
-        if (shift == Shift.ON) shift = Shift.OFF
+        // One-shot Shift: reset after typing a character
+        if (shift == Shift.ON) {
+            shift = Shift.OFF
+        }
     }
 
     fun toggleMode() {
         mode = when (mode) {
-            Mode.ALPHABET, Mode.NUMBERS -> Mode.SYMBOLS
-            Mode.SYMBOLS -> Mode.ALPHABET
+            Mode.ALPHABET -> Mode.SYMBOLS
+            Mode.SYMBOLS -> Mode.NUMBERS
+            Mode.NUMBERS -> Mode.ALPHABET
         }
     }
 

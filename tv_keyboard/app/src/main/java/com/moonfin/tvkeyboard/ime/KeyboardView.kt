@@ -6,6 +6,8 @@ import android.graphics.Paint
 import android.graphics.RectF
 import android.graphics.Typeface
 import android.inputmethodservice.Keyboard
+import android.os.Handler
+import android.os.Looper
 import android.util.AttributeSet
 import android.view.KeyEvent
 import android.view.MotionEvent
@@ -69,6 +71,11 @@ class KeyboardView @JvmOverloads constructor(
     private var cells: List<NavKey> = emptyList()
     private var focusedIndex = 0
     private var pressedIndex = -1
+
+    // Long-press detection for Shift key (Caps Lock)
+    private val longPressHandler = Handler(Looper.getMainLooper())
+    private var longPressRunnable: Runnable? = null
+    private val LONG_PRESS_DELAY_MS = 500L
 
     private val keyPaint = Paint(Paint.ANTI_ALIAS_FLAG)
     private val textPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
@@ -263,11 +270,54 @@ class KeyboardView @JvmOverloads constructor(
             KeyEvent.KEYCODE_NUMPAD_ENTER,
             -> {
                 // Held remotes repeat the event; only the first press types.
-                if (event.repeatCount == 0) activate(focusedIndex)
+                if (event.repeatCount == 0) {
+                    val focusedKey = keys.getOrNull(focusedIndex)
+                    if (focusedKey != null && focusedKey.codes.firstOrNull() == KeyCodes.SHIFT) {
+                        // Start long-press timer for Shift key
+                        startLongPressTimer()
+                    }
+                    activate(focusedIndex)
+                }
                 return true
             }
         }
         return super.onKeyDown(keyCode, event)
+    }
+
+    override fun onKeyUp(keyCode: Int, event: KeyEvent): Boolean {
+        when (keyCode) {
+            KeyEvent.KEYCODE_DPAD_CENTER,
+            KeyEvent.KEYCODE_ENTER,
+            KeyEvent.KEYCODE_NUMPAD_ENTER,
+            -> {
+                // Cancel long-press timer if key is released before long-press threshold
+                cancelLongPressTimer()
+                return true
+            }
+        }
+        return super.onKeyUp(keyCode, event)
+    }
+
+    private fun startLongPressTimer() {
+        cancelLongPressTimer()
+        longPressRunnable = Runnable { onLongPress() }
+        longPressHandler.postDelayed(longPressRunnable!!, LONG_PRESS_DELAY_MS)
+    }
+
+    private fun cancelLongPressTimer() {
+        longPressRunnable?.let { longPressHandler.removeCallbacks(it) }
+        longPressRunnable = null
+    }
+
+    private fun onLongPress() {
+        val focusedKey = keys.getOrNull(focusedIndex)
+        if (focusedKey != null && focusedKey.codes.firstOrNull() == KeyCodes.SHIFT) {
+            (listener as? LongPressListener)?.onLongPressShift()
+        }
+    }
+
+    interface LongPressListener {
+        fun onLongPressShift()
     }
 
     override fun onTouchEvent(event: MotionEvent): Boolean {
