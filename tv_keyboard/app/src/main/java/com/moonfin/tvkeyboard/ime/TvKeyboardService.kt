@@ -11,7 +11,7 @@ import com.moonfin.tvkeyboard.prefs.KeyboardPreferences
  * Shift, and Back are wired for the tracer bullet; symbols, suggestions, voice,
  * clipboard, and accents arrive in later tickets.
  */
-class TvKeyboardService : InputMethodService(), KeyboardView.Listener {
+class TvKeyboardService : InputMethodService(), KeyboardView.Listener, KeyboardView.LongPressListener {
 
     private lateinit var preferences: KeyboardPreferences
     private lateinit var session: KeyboardSession
@@ -64,8 +64,15 @@ class TvKeyboardService : InputMethodService(), KeyboardView.Listener {
             ImeCommand.MoveLeft -> sendCursorKey(KeyEvent.KEYCODE_DPAD_LEFT)
             ImeCommand.MoveRight -> sendCursorKey(KeyEvent.KEYCODE_DPAD_RIGHT)
             ImeCommand.ToggleShift -> session.toggleShift()
+            ImeCommand.LockShift -> session.lockShift()
+            ImeCommand.ToggleMode -> session.toggleMode()
             ImeCommand.None -> Unit
         }
+        syncView()
+    }
+
+    override fun onLongPressShift() {
+        session.lockShift()
         syncView()
     }
 
