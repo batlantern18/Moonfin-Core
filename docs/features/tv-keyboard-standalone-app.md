@@ -1,5 +1,9 @@
 # Standalone Android TV Keyboard App with Theming
 
+> **Superseded.** This Flutter focus-demo spec was replaced by
+> [`tv-keyboard-native-android-tv.md`](tv-keyboard-native-android-tv.md). The shipped app
+> is a native Kotlin Android TV IME with LeanKeyboard parity at `tv_keyboard/`.
+
 ## Problem Statement
 
 Moonfin-Core has a sophisticated Android TV D-pad/keyboard focus system that works well inside the app, but there is no standalone, themable application that demonstrates and exercises this keyboard functionality independently. Developers, testers, and reviewers need a self-contained app they can run on an Android TV device or emulator to evaluate, debug, and customize the D-pad navigation experience without building or launching the full Moonfin application. The app should be fully themable so different visual styles can be previewed and compared.

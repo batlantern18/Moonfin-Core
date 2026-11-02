@@ -1,5 +1,0 @@
-<manifest xmlns:android="http://schemas.android.com/apk/res/android">
-    <!-- Flutter needs to talk to the host over the network during profile
-         runs (devtools, profiling). -->
-    <uses-permission android:name="android.permission.INTERNET" />
-</manifest>
