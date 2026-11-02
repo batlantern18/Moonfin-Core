@@ -1,0 +1,93 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Moonfin Keyboard</string>
+    <string name="ime_name">Moonfin TV Keyboard</string>
+    <string name="settings_title">Moonfin TV Keyboard</string>
+    <string name="settings_subtitle">Android TV on-screen keyboard with Moonfin theming</string>
+
+    <!-- Key descriptions, also used by accessibility services. -->
+    <string name="keyboardview_keycode_space">Space</string>
+    <string name="keyboardview_keycode_delete">Delete</string>
+    <string name="keyboardview_keycode_mode_change">Mode change</string>
+    <string name="keyboardview_keycode_shift">Shift</string>
+    <string name="keyboardview_keycode_lang">Language</string>
+    <string name="keyboardview_keycode_caps">Caps Lock</string>
+    <string name="keyboardview_keycode_left">Left</string>
+    <string name="keyboardview_keycode_right">Right</string>
+    <string name="keyboardview_keycode_voice">Voice input</string>
+    <string name="keyboardview_keycode_clipboard">Clipboard</string>
+
+    <!-- Settings sections -->
+    <string name="section_activation">Activation</string>
+    <string name="section_layout">Layout</string>
+    <string name="section_theme">Theme</string>
+    <string name="section_style">Keyboard style</string>
+    <string name="section_options">Options</string>
+    <string name="section_about">About</string>
+
+    <string name="activation_enabled">Keyboard is enabled</string>
+    <string name="activation_disabled">Keyboard is not enabled</string>
+    <string name="activation_selected">Keyboard is selected</string>
+    <string name="activation_not_selected">Keyboard is not selected</string>
+    <string name="action_enable_keyboard">Enable keyboard</string>
+    <string name="action_choose_keyboard">Choose keyboard</string>
+    <string name="action_refresh">Refresh status</string>
+
+    <string name="layout_title">Keyboard layouts</string>
+    <string name="layout_hint">Enable the languages you use. Long-press the world key inside the keyboard to switch.</string>
+    <string name="layout_requires_one">At least one layout must stay enabled.</string>
+
+    <string name="theme_title">Theme</string>
+    <string name="theme_hint">Themes mirror the Moonfin app. The keyboard picks up the same accent, surface, focus ring, and glow tokens.</string>
+    <string name="theme_moonfin">Moonfin</string>
+    <string name="theme_neon_pulse">Neon Pulse</string>
+    <string name="theme_glass">Glass</string>
+    <string name="theme_eightbit">8-bit Hero</string>
+
+    <string name="style_title">Keyboard style</string>
+    <string name="style_hint">The same Classic, Glass, and Docked treatments used by Moonfin\'s in-app keyboard.</string>
+    <string name="style_classic">Classic</string>
+    <string name="style_glass">Glass</string>
+    <string name="style_docked">Docked</string>
+
+    <string name="option_keep_on_screen">Keep on screen</string>
+    <string name="option_keep_on_screen_desc">Keep the keyboard visible while a physical keyboard is active</string>
+    <string name="option_enlarge">Enlarge keyboard</string>
+    <string name="option_enlarge_desc">Increase key size and spacing</string>
+    <string name="option_suggestions">Suggestions row</string>
+    <string name="option_suggestions_desc">Show words and context-aware chips above the keys</string>
+    <string name="option_cyclic">Cyclic navigation</string>
+    <string name="option_cyclic_desc">Wrap D-pad focus around the keyboard edges</string>
+    <string name="option_auto_space">Auto-space</string>
+    <string name="option_auto_space_desc">Add a space after accepting a suggestion or voice result</string>
+    <string name="option_hide_physical">Hide for physical keyboard</string>
+    <string name="option_hide_physical_desc">Hide the on-screen keyboard when a hardware keyboard is used</string>
+    <string name="option_autodetect">Match system language</string>
+    <string name="option_autodetect_desc">Pick the closest layout on first run</string>
+    <string name="option_voice">Voice input</string>
+    <string name="option_voice_desc">Enable the microphone key (requests microphone permission)</string>
+
+    <string name="about_version">Version</string>
+    <string name="about_status">IME status</string>
+    <string name="about_license">Layout data</string>
+    <string name="about_license_text">Language layouts are derived from LeanKeyboard by Yurii L (MIT License). See NOTICE in the project root for the full license text.</string>
+    <string name="about_project">Moonfin-Core</string>
+
+    <string name="voice_listening">Listening…</string>
+    <string name="voice_unavailable">Speech recognition is unavailable. Check the microphone and try again.</string>
+    <string name="voice_permission">Microphone permission is required for voice input.</string>
+    <string name="clipboard_empty">Clipboard is empty</string>
+    <string name="clipboard_title">Paste from clipboard</string>
+    <string name="clipboard_hint">Use the D-pad to pick an entry. Back closes this panel.</string>
+
+    <string name="language_picker_title">Choose a language</string>
+    <string name="action_done">Done</string>
+    <string name="action_next">Next</string>
+    <string name="action_search">Search</string>
+    <string name="action_send">Send</string>
+    <string name="action_go">Go</string>
+    <string name="action_enter">Enter</string>
+
+    <string name="style_preview">Preview</string>
+    <string name="keyboard_hold_for_accents">hold for accents</string>
+</resources>
