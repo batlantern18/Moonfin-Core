@@ -11,7 +11,11 @@ import com.moonfin.tvkeyboard.prefs.KeyboardPreferences
  * The Moonfin Android TV input method with suggestions row, action button,
  * and full keyboard integration.
  */
-class TvKeyboardService : InputMethodService(), KeyboardRootView.Listener {
+class TvKeyboardService : InputMethodService(), KeyboardRootView.Listener, KeyboardView.LongPressListener {
+    override fun onLongPressShift() {
+        session.lockShift()
+        syncView()
+    }
 
     private lateinit var preferences: KeyboardPreferences
     private lateinit var session: KeyboardSession
@@ -80,6 +84,8 @@ class TvKeyboardService : InputMethodService(), KeyboardRootView.Listener {
             ImeCommand.MoveLeft -> sendCursorKey(KeyEvent.KEYCODE_DPAD_LEFT)
             ImeCommand.MoveRight -> sendCursorKey(KeyEvent.KEYCODE_DPAD_RIGHT)
             ImeCommand.ToggleShift -> session.toggleShift()
+            ImeCommand.LockShift -> session.lockShift()
+            ImeCommand.ToggleMode -> session.toggleMode()
             ImeCommand.None -> Unit
         }
         syncView()
@@ -105,6 +111,7 @@ class TvKeyboardService : InputMethodService(), KeyboardRootView.Listener {
     }
 
     private fun syncView() {
+        updateSuggestions()
         val view = rootView ?: return
         view.palette = session.palette
         view.cyclicNavigation = preferences.cyclicNavigation
@@ -118,7 +125,6 @@ class TvKeyboardService : InputMethodService(), KeyboardRootView.Listener {
         } else {
             view.hideActionButton()
         }
-
         setInputViewBackground(view)
     }
 
@@ -132,19 +138,16 @@ class TvKeyboardService : InputMethodService(), KeyboardRootView.Listener {
             view.clearSuggestions()
             return
         }
-
         val connection = currentInputConnection ?: return
         val textBeforeCursor = connection.getTextBeforeCursor(SuggestionEngine.MAX_PREFIX_LOOKBEHIND, 0)?.toString() ?: ""
         val mode = suggestionEngine.modeFor(session.inputType)
         val domains = commonEmailDomains
-
         val suggestions = suggestionEngine.suggestions(
             textBeforeCursor = textBeforeCursor,
             mode = mode,
             domains = domains,
             limit = SuggestionEngine.MAX_SUGGESTIONS
         )
-
         view.setSuggestions(suggestions)
     }
 
@@ -153,10 +156,12 @@ class TvKeyboardService : InputMethodService(), KeyboardRootView.Listener {
     }
 
     private fun commit(text: String) {
+        updateSuggestions()
         currentInputConnection?.commitText(text, 1)
     }
 
     private fun deleteBeforeCursor() {
+        updateSuggestions()
         val connection = currentInputConnection ?: return
         val selection = connection.getSelectedText(0)
         if (!selection.isNullOrEmpty()) {

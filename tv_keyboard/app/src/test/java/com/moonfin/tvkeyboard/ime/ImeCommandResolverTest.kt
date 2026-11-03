@@ -61,11 +61,15 @@ class ImeCommandResolverTest {
     }
 
     @Test
-    fun `unsupported keys are a no-op for the tracer bullet`() {
+    fun `mode change key toggles mode`() {
         assertEquals(
-            ImeCommand.None,
+            ImeCommand.ToggleMode,
             ImeCommandResolver.resolve(KeyCodes.MODE_CHANGE, "Mode change", shifted = false, locale = locale),
         )
+    }
+
+    @Test
+    fun `unsupported keys are a no-op for the tracer bullet`() {
         assertEquals(
             ImeCommand.None,
             ImeCommandResolver.resolve(KeyCodes.LANGUAGE, "Language", shifted = false, locale = locale),
