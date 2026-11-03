@@ -12,6 +12,10 @@ import com.moonfin.tvkeyboard.prefs.KeyboardPreferences
  * and full keyboard integration.
  */
 class TvKeyboardService : InputMethodService(), KeyboardRootView.Listener, KeyboardView.LongPressListener {
+    override fun onLongPressShift() {
+        session.lockShift()
+        syncView()
+    }
 
     private lateinit var preferences: KeyboardPreferences
     private lateinit var session: KeyboardSession
