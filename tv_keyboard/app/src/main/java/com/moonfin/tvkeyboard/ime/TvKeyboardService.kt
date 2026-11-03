@@ -1,10 +1,12 @@
 package com.moonfin.tvkeyboard.ime
 
+import android.content.pm.PackageManager
 import android.inputmethodservice.InputMethodService
 import android.text.InputType
 import android.view.KeyEvent
 import android.view.View
 import android.view.inputmethod.EditorInfo
+import android.widget.Toast
 import com.moonfin.tvkeyboard.prefs.KeyboardPreferences
 
 /**
@@ -12,25 +14,32 @@ import com.moonfin.tvkeyboard.prefs.KeyboardPreferences
  * and full keyboard integration.
  */
 class TvKeyboardService : InputMethodService(), KeyboardRootView.Listener, KeyboardView.LongPressListener {
-    override fun onLongPressShift() {
-        session.lockShift()
-        syncView()
-    }
 
     private lateinit var preferences: KeyboardPreferences
     private lateinit var session: KeyboardSession
     private lateinit var suggestionEngine: SuggestionEngine
     private var rootView: KeyboardRootView? = null
+    
+    private var voiceInputController: VoiceInputController? = null
+    private var clipboardController: ClipboardController? = null
 
     override fun onCreate() {
         super.onCreate()
         preferences = KeyboardPreferences(this)
         session = KeyboardSession(this, preferences)
-        suggestionEngine = SuggestionEngine { _ ->
-            // Editor completions would be requested via InputConnection.getCompletions
-            // For now, we rely on domain suggestions for email/web fields
-            emptyList()
-        }
+        suggestionEngine = SuggestionEngine { _ -> emptyList() }
+        
+        voiceInputController = VoiceInputController(this, { text ->
+            commit(text)
+            updateSuggestions()
+        }, { message ->
+            Toast.makeText(this, message, Toast.LENGTH_LONG).show()
+        })
+        
+        clipboardController = ClipboardController(this, { text ->
+            commit(text)
+            updateSuggestions()
+        }, { })
     }
 
     override fun onEvaluateFullscreenMode(): Boolean = false
@@ -59,7 +68,6 @@ class TvKeyboardService : InputMethodService(), KeyboardRootView.Listener, Keybo
 
     override fun onKeyDown(keyCode: Int, event: KeyEvent): Boolean {
         if (keyCode == KeyEvent.KEYCODE_BACK) {
-            // Let root view handle zone navigation first
             val handled = rootView?.onKeyDown(keyCode, event) ?: false
             if (!handled) {
                 requestHideSelf(0)
@@ -86,8 +94,15 @@ class TvKeyboardService : InputMethodService(), KeyboardRootView.Listener, Keybo
             ImeCommand.ToggleShift -> session.toggleShift()
             ImeCommand.LockShift -> session.lockShift()
             ImeCommand.ToggleMode -> session.toggleMode()
+            ImeCommand.VoiceInput -> startVoiceInput()
+            ImeCommand.ClipboardOverlay -> showClipboardOverlay()
             ImeCommand.None -> Unit
         }
+        syncView()
+    }
+
+    override fun onLongPressShift() {
+        session.lockShift()
         syncView()
     }
 
@@ -180,8 +195,21 @@ class TvKeyboardService : InputMethodService(), KeyboardRootView.Listener, Keybo
         connection.sendKeyEvent(KeyEvent(KeyEvent.ACTION_UP, keyCode))
     }
 
+    private fun startVoiceInput() {
+        voiceInputController?.start()
+    }
+
+    private fun showClipboardOverlay() {
+        val clips = clipboardController?.getRecentClips()?.filter { it.text.isNotBlank() } ?: emptyList()
+        if (clips.isEmpty()) {
+            Toast.makeText(this, "Clipboard empty. Copy text in another app first.", Toast.LENGTH_LONG).show()
+            return
+        }
+        val text = clips.firstOrNull()?.text ?: return
+        commit(text)
+    }
+
     companion object {
-        /** Common email domains for DOMAIN suggestion mode. */
         private val commonEmailDomains = listOf(
             "@gmail.com", "@yahoo.com", "@hotmail.com", "@outlook.com",
             "@icloud.com", "@aol.com", "@protonmail.com", "@zoho.com",

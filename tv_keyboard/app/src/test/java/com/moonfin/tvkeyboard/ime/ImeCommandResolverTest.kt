@@ -74,12 +74,20 @@ class ImeCommandResolverTest {
             ImeCommand.None,
             ImeCommandResolver.resolve(KeyCodes.LANGUAGE, "Language", shifted = false, locale = locale),
         )
+    }
+
+    @Test
+    fun `voice key starts voice input`() {
         assertEquals(
-            ImeCommand.None,
+            ImeCommand.VoiceInput,
             ImeCommandResolver.resolve(KeyCodes.VOICE, "Voice", shifted = false, locale = locale),
         )
+    }
+
+    @Test
+    fun `clipboard key opens clipboard overlay`() {
         assertEquals(
-            ImeCommand.None,
+            ImeCommand.ClipboardOverlay,
             ImeCommandResolver.resolve(KeyCodes.CLIPBOARD, "Clipboard", shifted = false, locale = locale),
         )
     }
