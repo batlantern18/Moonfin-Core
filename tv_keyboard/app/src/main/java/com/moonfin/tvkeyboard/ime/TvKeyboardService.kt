@@ -126,45 +126,31 @@ class TvKeyboardService : InputMethodService(), KeyboardRootView.Listener, Keybo
     }
 
     private fun syncView() {
-        updateSuggestions()
         val view = rootView ?: return
-        view.palette = session.palette
-        view.cyclicNavigation = preferences.cyclicNavigation
-        view.locale = session.locale
-        view.shifted = session.isShifted
-        view.keyboard = session.keyboard
-        view.suggestionsEnabled = preferences.suggestionsEnabled
-
-        if (session.actionLabel.isNotEmpty()) {
-            view.showActionButton(session.actionLabel)
-        } else {
-            view.hideActionButton()
-        }
+        val suggestions = if (preferences.suggestionsEnabled) currentSuggestions() else emptyList()
+        val state = KeyboardState.from(session, preferences, suggestions)
+        view.apply(state, session.keyboard)
         setInputViewBackground(view)
+    }
+
+    private fun currentSuggestions(): List<Suggestion> {
+        val connection = currentInputConnection ?: return emptyList()
+        val textBeforeCursor =
+            connection.getTextBeforeCursor(SuggestionEngine.MAX_PREFIX_LOOKBEHIND, 0)?.toString() ?: ""
+        val mode = suggestionEngine.modeFor(session.inputType)
+        return suggestionEngine.suggestions(
+            textBeforeCursor = textBeforeCursor,
+            mode = mode,
+            domains = commonEmailDomains,
+            limit = SuggestionEngine.MAX_SUGGESTIONS,
+        )
     }
 
     private fun setInputViewBackground(view: KeyboardRootView) {
         view.setBackgroundColor(session.palette.panel)
     }
 
-    private fun updateSuggestions() {
-        val view = rootView ?: return
-        if (!preferences.suggestionsEnabled) {
-            view.clearSuggestions()
-            return
-        }
-        val connection = currentInputConnection ?: return
-        val textBeforeCursor = connection.getTextBeforeCursor(SuggestionEngine.MAX_PREFIX_LOOKBEHIND, 0)?.toString() ?: ""
-        val mode = suggestionEngine.modeFor(session.inputType)
-        val domains = commonEmailDomains
-        val suggestions = suggestionEngine.suggestions(
-            textBeforeCursor = textBeforeCursor,
-            mode = mode,
-            domains = domains,
-            limit = SuggestionEngine.MAX_SUGGESTIONS
-        )
-        view.setSuggestions(suggestions)
-    }
+    private fun updateSuggestions() = syncView()
 
     private fun clearSuggestions() {
         rootView?.clearSuggestions()

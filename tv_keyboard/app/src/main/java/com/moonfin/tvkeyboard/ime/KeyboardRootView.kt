@@ -209,6 +209,28 @@ class KeyboardRootView @JvmOverloads constructor(
         canvas.drawColor(palette.panel)
     }
 
+    /**
+     * Apply one [KeyboardState] to the whole surface. This is the single seam
+     * the service uses to render, so the view no longer reads the session or
+     * preferences directly. [keyboard] is the parsed layout for the state's
+     * [KeyboardState.SessionState.layoutResource]; it is an Android resource
+     * concern rather than typed state, so it is passed alongside the snapshot.
+     */
+    fun apply(state: KeyboardState, keyboard: android.inputmethodservice.Keyboard?) {
+        palette = state.palette
+        cyclicNavigation = state.cyclic
+        locale = state.locale
+        shifted = state.isShifted
+        suggestionsEnabled = state.ui.suggestionsEnabled
+        this.keyboard = keyboard
+        setSuggestions(state.suggestions)
+        if (state.actionLabel.isNotEmpty()) {
+            showActionButton(state.actionLabel)
+        } else {
+            hideActionButton()
+        }
+    }
+
     fun setSuggestions(suggestions: List<Suggestion>) {
         suggestionsRow.suggestions = suggestions
         requestLayout()

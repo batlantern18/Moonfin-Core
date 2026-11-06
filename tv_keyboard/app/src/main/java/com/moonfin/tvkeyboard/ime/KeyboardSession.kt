@@ -52,6 +52,21 @@ class KeyboardSession(
 
     val isShifted: Boolean get() = shift != Shift.OFF
 
+    /** Stable identity of the active layout, e.g. `fr` or `en_us_azerty`. */
+    val languageKey: String get() = language.key
+
+    /**
+     * The resource name of the layout currently in use, computed without a
+     * [Context]. Mirrors [keyboard] but stays free of Android types so the
+     * derived [KeyboardState] can be inspected on the JVM.
+     */
+    val activeLayoutResource: String
+        get() = when (mode) {
+            Mode.ALPHABET -> language.alphabetResource
+            Mode.SYMBOLS -> KeyboardLayouts.SYMBOLS_RESOURCE
+            Mode.NUMBERS -> KeyboardLayouts.NUMBERS_RESOURCE
+        }
+
     val palette get() = com.moonfin.tvkeyboard.theme.ThemeCatalog.palette(
         preferences.theme,
         preferences.style,
@@ -153,6 +168,12 @@ class KeyboardSession(
             languageIndex = index
             cache = mutableMapOf()
         }
+    }
+
+    /** Switch to a layout by its stable key, or no-op when it is not enabled. */
+    fun selectLanguageByKey(key: String) {
+        val index = languages.indexOfFirst { it.key == key }
+        if (index >= 0) selectLanguage(index)
     }
 
     private val fallbackLanguage = LanguageLayout("English", "en_us", azerty = false)
