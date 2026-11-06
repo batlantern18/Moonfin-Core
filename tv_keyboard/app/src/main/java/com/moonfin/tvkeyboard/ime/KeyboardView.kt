@@ -272,8 +272,8 @@ class KeyboardView @JvmOverloads constructor(
                 // Held remotes repeat the event; only the first press types.
                 if (event.repeatCount == 0) {
                     val focusedKey = keys.getOrNull(focusedIndex)
-                    if (focusedKey != null && focusedKey.codes.firstOrNull() == KeyCodes.SHIFT) {
-                        // Start long-press timer for Shift key
+                    if (focusedKey != null && focusedKey.codes.firstOrNull() in LONG_PRESS_CODES) {
+                        // Start the long-press timer (caps lock, language picker).
                         startLongPressTimer()
                     }
                     activate(focusedIndex)
@@ -310,14 +310,21 @@ class KeyboardView @JvmOverloads constructor(
     }
 
     private fun onLongPress() {
-        val focusedKey = keys.getOrNull(focusedIndex)
-        if (focusedKey != null && focusedKey.codes.firstOrNull() == KeyCodes.SHIFT) {
-            (listener as? LongPressListener)?.onLongPressShift()
+        val code = keys.getOrNull(focusedIndex)?.codes?.firstOrNull() ?: return
+        when (code) {
+            KeyCodes.SHIFT -> (listener as? LongPressListener)?.onLongPressShift()
+            KeyCodes.LANGUAGE, KeyCodes.SPACE -> (listener as? LongPressListener)?.onLongPressLanguage()
         }
     }
 
     interface LongPressListener {
         fun onLongPressShift()
+        fun onLongPressLanguage()
+    }
+
+    private companion object {
+        /** Keys that open a long-press action (caps lock, language picker). */
+        val LONG_PRESS_CODES = setOf(KeyCodes.SHIFT, KeyCodes.LANGUAGE, KeyCodes.SPACE)
     }
 
     override fun onTouchEvent(event: MotionEvent): Boolean {

@@ -58,6 +58,15 @@ class KeyboardPreferences(context: Context) {
         get() = prefs.getBoolean(KEY_AUTODETECT, false)
         set(value) = prefs.edit().putBoolean(KEY_AUTODETECT, value).apply()
 
+    /**
+     * The last language the user picked inside the keyboard, so the selection
+     * survives a reboot. Null until the user has chosen one; `initialLanguage`
+     * honours it before any first-run auto-detection.
+     */
+    var selectedLanguageKey: String?
+        get() = prefs.getString(KEY_SELECTED_LANGUAGE, null)
+        set(value) = prefs.edit().putString(KEY_SELECTED_LANGUAGE, value).apply()
+
     /** Stable keys such as `en_us` or `fr_azerty`. Empty means "use the default". */
     var enabledLanguageKeys: Set<String>
         get() = prefs.getStringSet(KEY_LANGUAGES, null)?.toSet() ?: setOf(DEFAULT_LANGUAGE)
@@ -81,6 +90,8 @@ class KeyboardPreferences(context: Context) {
      */
     fun initialLanguage(all: List<LanguageLayout> = allLanguages()): LanguageLayout {
         val fallback = all.firstOrNull { it.key == DEFAULT_LANGUAGE } ?: all.first()
+        // A persisted choice wins: the user already picked it.
+        selectedLanguageKey?.let { key -> all.firstOrNull { it.key == key }?.let { return it } }
         if (!autodetectLanguage) return fallback
         val systemLanguage = Locale.getDefault().language
         return all.firstOrNull { it.code.substringBefore('_') == systemLanguage } ?: fallback
@@ -111,6 +122,7 @@ class KeyboardPreferences(context: Context) {
         const val KEY_HIDE_PHYSICAL = "hidePhysicalKeyboard"
         const val KEY_VOICE = "voiceEnabled"
         const val KEY_AUTODETECT = "autodetectLanguage"
+        const val KEY_SELECTED_LANGUAGE = "selectedLanguageKey"
         const val DEFAULT_LANGUAGE = "en_us"
     }
 }

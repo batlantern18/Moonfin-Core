@@ -47,6 +47,10 @@ class TvKeyboardService : InputMethodService(), KeyboardRootView.Listener, Keybo
     override fun onCreateInputView(): View {
         val view = KeyboardRootView(this)
         view.listener = this
+        view.onLanguageSelected = { index -> onLanguageSelected(index) }
+        view.onLanguagePickerCancelled = {
+            rootView?.dismissLanguagePicker()
+        }
         rootView = view
         syncView()
         view.requestKeyboardFocus()
@@ -94,6 +98,10 @@ class TvKeyboardService : InputMethodService(), KeyboardRootView.Listener, Keybo
             ImeCommand.ToggleShift -> session.toggleShift()
             ImeCommand.LockShift -> session.lockShift()
             ImeCommand.ToggleMode -> session.toggleMode()
+            ImeCommand.CycleLanguage -> {
+                session.cycleLanguage()
+                preferences.selectedLanguageKey = session.languageKey
+            }
             ImeCommand.VoiceInput -> startVoiceInput()
             ImeCommand.ClipboardOverlay -> showClipboardOverlay()
             ImeCommand.None -> Unit
@@ -103,6 +111,24 @@ class TvKeyboardService : InputMethodService(), KeyboardRootView.Listener, Keybo
 
     override fun onLongPressShift() {
         session.lockShift()
+        syncView()
+    }
+
+    /** Long-press the language or space key: open the language picker. */
+    override fun onLongPressLanguage() {
+        val view = rootView ?: return
+        view.showLanguagePicker(
+            languages = session.languages,
+            currentIndex = session.languageIndex,
+            cyclic = preferences.cyclicNavigation,
+            rtl = session.language.isRtl,
+        )
+    }
+
+    /** A language was chosen in the picker overlay. */
+    private fun onLanguageSelected(index: Int) {
+        session.selectLanguage(index)
+        preferences.selectedLanguageKey = session.languageKey
         syncView()
     }
 

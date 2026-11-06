@@ -21,6 +21,18 @@ data class LanguageLayout(
     /** Locale used for case mapping while typing. */
     val locale: Locale
         get() = Locale.forLanguageTag(code.replace('_', '-'))
+
+    /**
+     * Whether the layout reads right-to-left (Arabic, Hebrew, Persian). Used to
+     * mirror the keyboard and picker instead of fighting the text direction.
+     */
+    val isRtl: Boolean
+        get() = RTL_LANGUAGES.contains(code.substringBefore('_'))
+
+    companion object {
+        /** Language primary codes that lay out right-to-left. */
+        val RTL_LANGUAGES = setOf("ar", "he", "fa")
+    }
 }
 
 object LanguageRegistry {

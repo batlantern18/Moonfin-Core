@@ -69,10 +69,18 @@ class ImeCommandResolverTest {
     }
 
     @Test
-    fun `unsupported keys are a no-op for the tracer bullet`() {
+    fun `language key cycles the enabled layouts`() {
+        assertEquals(
+            ImeCommand.CycleLanguage,
+            ImeCommandResolver.resolve(KeyCodes.LANGUAGE, "Language", shifted = false, locale = locale),
+        )
+    }
+
+    @Test
+    fun `keys with no command are a no-op`() {
         assertEquals(
             ImeCommand.None,
-            ImeCommandResolver.resolve(KeyCodes.LANGUAGE, "Language", shifted = false, locale = locale),
+            ImeCommandResolver.resolve(-99, "None", shifted = false, locale = locale),
         )
     }
 

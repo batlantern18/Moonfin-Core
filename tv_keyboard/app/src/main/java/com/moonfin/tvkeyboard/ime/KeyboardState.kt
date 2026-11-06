@@ -28,6 +28,7 @@ data class KeyboardState(
     val actionLabel: String get() = session.actionLabel
 
     val isShifted: Boolean get() = session.isShifted
+    val isRtl: Boolean get() = session.isRtl
     val cyclic: Boolean get() = ui.cyclic
     val locale: Locale get() = ui.locale
     val suggestions: List<Suggestion> get() = ui.suggestions
@@ -39,6 +40,7 @@ data class KeyboardState(
         val shift: KeyboardSession.Shift,
         val languageIndex: Int,
         val languageKey: String,
+        val isRtl: Boolean,
         val isShifted: Boolean,
         val layoutResource: String,
         val actionLabel: String,
@@ -74,6 +76,7 @@ data class KeyboardState(
                     shift = session.shift,
                     languageIndex = session.languageIndex,
                     languageKey = session.languageKey,
+                    isRtl = session.language.isRtl,
                     isShifted = session.isShifted,
                     layoutResource = session.activeLayoutResource,
                     actionLabel = session.actionLabel,

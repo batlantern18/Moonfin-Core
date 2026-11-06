@@ -33,6 +33,12 @@ class KeyboardRootView @JvmOverloads constructor(
 
     var listener: Listener? = null
 
+    /** Invoked with the enabled-language index the user picked in the overlay. */
+    var onLanguageSelected: ((Int) -> Unit)? = null
+
+    /** Invoked when the user dismisses the language picker without selecting. */
+    var onLanguagePickerCancelled: (() -> Unit)? = null
+
     var palette: KeyboardPalette = ThemeCatalog.palette(VisualTheme.MOONFIN, KeyboardStyle.DOCKED)
         set(value) {
             field = value
@@ -56,6 +62,16 @@ class KeyboardRootView @JvmOverloads constructor(
         set(value) {
             field = value
             keyboardView.cyclic = value
+        }
+
+    /** Mirror the surface when the active layout reads right-to-left. */
+    var rtl: Boolean = false
+        set(value) {
+            if (field == value) return
+            field = value
+            layoutDirection = if (value) LAYOUT_DIRECTION_RTL else LAYOUT_DIRECTION_LTR
+            languagePicker.rtl = value
+            invalidate()
         }
 
     var locale: java.util.Locale = java.util.Locale.getDefault()
@@ -97,6 +113,14 @@ class KeyboardRootView @JvmOverloads constructor(
 
     private var actionButton: ActionButton? = null
 
+    private val languagePicker = LanguagePickerView(context).apply {
+        layoutParams = FrameLayout.LayoutParams(
+            ViewGroup.LayoutParams.MATCH_PARENT,
+            ViewGroup.LayoutParams.MATCH_PARENT,
+        )
+        visibility = View.GONE
+    }
+
     init {
         isFocusable = true
         isFocusableInTouchMode = true
@@ -127,6 +151,14 @@ class KeyboardRootView @JvmOverloads constructor(
 
         addView(suggestionsRow)
         addView(keyboardView)
+        addView(languagePicker)
+
+        languagePicker.onLanguageSelected = { index ->
+            onLanguageSelected?.invoke(index)
+        }
+        languagePicker.onCancel = {
+            onLanguagePickerCancelled?.invoke()
+        }
     }
 
     override fun onMeasure(widthMeasureSpec: Int, heightMeasureSpec: Int) {
@@ -209,6 +241,23 @@ class KeyboardRootView @JvmOverloads constructor(
         canvas.drawColor(palette.panel)
     }
 
+    /** Open the language picker overlay over the keyboard. */
+    fun showLanguagePicker(languages: List<LanguageLayout>, currentIndex: Int, cyclic: Boolean, rtl: Boolean) {
+        languagePicker.palette = palette
+        this.rtl = rtl
+        languagePicker.show(languages, currentIndex, cyclic, rtl)
+        requestLayout()
+    }
+
+    fun dismissLanguagePicker() {
+        if (languagePicker.isVisible) {
+            languagePicker.hide()
+            requestKeyboardFocus()
+        }
+    }
+
+    val isLanguagePickerVisible: Boolean get() = languagePicker.isVisible
+
     /**
      * Apply one [KeyboardState] to the whole surface. This is the single seam
      * the service uses to render, so the view no longer reads the session or
@@ -221,6 +270,7 @@ class KeyboardRootView @JvmOverloads constructor(
         cyclicNavigation = state.cyclic
         locale = state.locale
         shifted = state.isShifted
+        rtl = state.isRtl
         suggestionsEnabled = state.ui.suggestionsEnabled
         this.keyboard = keyboard
         setSuggestions(state.suggestions)
@@ -276,6 +326,10 @@ class KeyboardRootView @JvmOverloads constructor(
     }
 
     override fun onKeyDown(keyCode: Int, event: KeyEvent): Boolean {
+        // While the picker is open it owns every D-pad and Back key.
+        if (languagePicker.isVisible) {
+            return languagePicker.onKeyDown(keyCode, event)
+        }
         when (keyCode) {
             KeyEvent.KEYCODE_DPAD_UP -> {
                 when (currentZone) {

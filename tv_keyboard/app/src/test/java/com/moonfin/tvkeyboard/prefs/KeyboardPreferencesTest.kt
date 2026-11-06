@@ -122,4 +122,34 @@ class KeyboardPreferencesTest {
             .thenReturn(setOf("en_us", "fr"))
         assertEquals(setOf("en_us", "fr"), preferences.enabledLanguageKeys)
     }
+
+    @Test
+    fun `selectedLanguageKey defaults to null`() {
+        assertNull(preferences.selectedLanguageKey)
+    }
+
+    @Test
+    fun `selectedLanguageKey persists`() {
+        `when`(prefs.getString(KeyboardPreferences.KEY_SELECTED_LANGUAGE, null)).thenReturn("fr")
+        assertEquals("fr", preferences.selectedLanguageKey)
+    }
+
+    @Test
+    fun `initialLanguage prefers a persisted selection`() {
+        `when`(prefs.getString(KeyboardPreferences.KEY_SELECTED_LANGUAGE, null)).thenReturn("fr")
+        val all = listOf(
+            LanguageLayout("English", "en_us", azerty = false),
+            LanguageLayout("Français", "fr", azerty = false),
+        )
+        assertEquals("fr", preferences.initialLanguage(all).key)
+    }
+
+    @Test
+    fun `initialLanguage falls back to default when nothing is selected`() {
+        val all = listOf(
+            LanguageLayout("English", "en_us", azerty = false),
+            LanguageLayout("Français", "fr", azerty = false),
+        )
+        assertEquals("en_us", preferences.initialLanguage(all).key)
+    }
 }
