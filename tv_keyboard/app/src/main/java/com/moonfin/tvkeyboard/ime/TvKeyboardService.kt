@@ -125,6 +125,19 @@ class TvKeyboardService : InputMethodService(), KeyboardRootView.Listener, Keybo
         )
     }
 
+    /** A key with a vendored popup layout was held: open its mini keyboard. */
+    override fun onLongPressKey(key: android.inputmethodservice.Keyboard.Key) {
+        if (!AccentPopup.hasPopup(key)) return
+        rootView?.showAccentPopup(key.popupResId, session.isShifted, session.locale)
+    }
+
+    /** A character was chosen in the popup; one-shot Shift is consumed. */
+    override fun onAccentSelected(text: String) {
+        commit(text)
+        session.consumeShift()
+        updateSuggestions()
+    }
+
     /** A language was chosen in the picker overlay. */
     private fun onLanguageSelected(index: Int) {
         session.selectLanguage(index)

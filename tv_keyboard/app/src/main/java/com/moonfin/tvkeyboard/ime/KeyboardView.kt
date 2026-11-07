@@ -72,9 +72,18 @@ class KeyboardView @JvmOverloads constructor(
     private var focusedIndex = 0
     private var pressedIndex = -1
 
-    // Long-press detection for Shift key (Caps Lock)
+    // Long-press detection for Shift (Caps Lock), the language picker, and
+    // keys that carry a vendored popup layout.
     private val longPressHandler = Handler(Looper.getMainLooper())
     private var longPressRunnable: Runnable? = null
+    private var longPressKey: Keyboard.Key? = null
+
+    /**
+     * Key with a popup that is waiting for key-up. Popup keys type their base
+     * character on release, so a hold can open the mini keyboard first.
+     */
+    private var pendingPopupKey: Keyboard.Key? = null
+
     private val LONG_PRESS_DELAY_MS = 500L
 
     private val keyPaint = Paint(Paint.ANTI_ALIAS_FLAG)
@@ -269,14 +278,24 @@ class KeyboardView @JvmOverloads constructor(
             KeyEvent.KEYCODE_ENTER,
             KeyEvent.KEYCODE_NUMPAD_ENTER,
             -> {
-                // Held remotes repeat the event; only the first press types.
+                // Held remotes repeat the event; only the first press counts.
                 if (event.repeatCount == 0) {
                     val focusedKey = keys.getOrNull(focusedIndex)
-                    if (focusedKey != null && focusedKey.codes.firstOrNull() in LONG_PRESS_CODES) {
-                        // Start the long-press timer (caps lock, language picker).
-                        startLongPressTimer()
+                    if (focusedKey != null) {
+                        when {
+                            focusedKey.codes.firstOrNull() in LONG_PRESS_CODES -> {
+                                // Start the long-press timer (caps lock, language picker).
+                                startLongPressTimer(focusedKey)
+                                activate(focusedIndex)
+                            }
+                            AccentPopup.hasPopup(focusedKey) -> {
+                                // Type on release unless the hold wins.
+                                pendingPopupKey = focusedKey
+                                startLongPressTimer(focusedKey)
+                            }
+                            else -> activate(focusedIndex)
+                        }
                     }
-                    activate(focusedIndex)
                 }
                 return true
             }
@@ -290,16 +309,24 @@ class KeyboardView @JvmOverloads constructor(
             KeyEvent.KEYCODE_ENTER,
             KeyEvent.KEYCODE_NUMPAD_ENTER,
             -> {
-                // Cancel long-press timer if key is released before long-press threshold
                 cancelLongPressTimer()
+                // A popup key that was released before the hold threshold types
+                // its base character exactly once.
+                val pending = pendingPopupKey
+                pendingPopupKey = null
+                if (pending != null) {
+                    val index = keys.indexOf(pending)
+                    if (index >= 0) activate(index)
+                }
                 return true
             }
         }
         return super.onKeyUp(keyCode, event)
     }
 
-    private fun startLongPressTimer() {
+    private fun startLongPressTimer(key: Keyboard.Key) {
         cancelLongPressTimer()
+        longPressKey = key
         longPressRunnable = Runnable { onLongPress() }
         longPressHandler.postDelayed(longPressRunnable!!, LONG_PRESS_DELAY_MS)
     }
@@ -307,19 +334,30 @@ class KeyboardView @JvmOverloads constructor(
     private fun cancelLongPressTimer() {
         longPressRunnable?.let { longPressHandler.removeCallbacks(it) }
         longPressRunnable = null
+        longPressKey = null
     }
 
     private fun onLongPress() {
-        val code = keys.getOrNull(focusedIndex)?.codes?.firstOrNull() ?: return
-        when (code) {
+        val key = longPressKey ?: keys.getOrNull(focusedIndex) ?: return
+        longPressKey = null
+        when (key.codes.firstOrNull()) {
             KeyCodes.SHIFT -> (listener as? LongPressListener)?.onLongPressShift()
             KeyCodes.LANGUAGE, KeyCodes.SPACE -> (listener as? LongPressListener)?.onLongPressLanguage()
+            else -> if (AccentPopup.hasPopup(key)) {
+                // The hold won: swallow the release so the base character is
+                // never typed before the mini keyboard opens.
+                pendingPopupKey = null
+                (listener as? LongPressListener)?.onLongPressKey(key)
+            }
         }
     }
 
     interface LongPressListener {
         fun onLongPressShift()
         fun onLongPressLanguage()
+
+        /** A key with a vendored popup layout was held. */
+        fun onLongPressKey(key: Keyboard.Key)
     }
 
     private companion object {
@@ -335,6 +373,13 @@ class KeyboardView @JvmOverloads constructor(
                 focusedIndex = index
                 pressedIndex = index
                 contentDescription = keys.getOrNull(index)?.let(::describe)
+                val key = keys.getOrNull(index)
+                if (key != null && AccentPopup.hasPopup(key)) {
+                    // A tap types the base character on release; a hold opens
+                    // the mini keyboard instead.
+                    pendingPopupKey = key
+                    startLongPressTimer(key)
+                }
                 invalidate()
                 return true
             }
@@ -349,15 +394,24 @@ class KeyboardView @JvmOverloads constructor(
                 val released = hitTest(event.x, event.y)
                 val pressed = pressedIndex
                 pressedIndex = -1
+                val pending = pendingPopupKey
+                pendingPopupKey = null
+                cancelLongPressTimer()
                 invalidate()
                 if (pressed >= 0 && released == pressed) {
-                    performClick()
-                    activate(pressed)
+                    val key = keys.getOrNull(pressed)
+                    val popupHeld = key != null && AccentPopup.hasPopup(key) && pending == null
+                    if (!popupHeld) {
+                        performClick()
+                        activate(pressed)
+                    }
                 }
                 return true
             }
             MotionEvent.ACTION_CANCEL -> {
                 pressedIndex = -1
+                pendingPopupKey = null
+                cancelLongPressTimer()
                 invalidate()
                 return true
             }

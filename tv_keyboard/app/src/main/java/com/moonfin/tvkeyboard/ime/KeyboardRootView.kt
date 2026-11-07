@@ -29,6 +29,9 @@ class KeyboardRootView @JvmOverloads constructor(
         fun onKey(key: android.inputmethodservice.Keyboard.Key)
         fun onActionButton()
         fun onSuggestionSelected(suggestion: Suggestion, index: Int)
+
+        /** A character was chosen in the accent popup. */
+        fun onAccentSelected(text: String)
     }
 
     var listener: Listener? = null
@@ -44,6 +47,7 @@ class KeyboardRootView @JvmOverloads constructor(
             field = value
             suggestionsRow.palette = value
             keyboardView.palette = value
+            accentPopup.palette = value
             actionButton?.let { it.palette = value }
             invalidate()
         }
@@ -62,6 +66,7 @@ class KeyboardRootView @JvmOverloads constructor(
         set(value) {
             field = value
             keyboardView.cyclic = value
+            accentPopup.cyclic = value
         }
 
     /** Mirror the surface when the active layout reads right-to-left. */
@@ -71,6 +76,7 @@ class KeyboardRootView @JvmOverloads constructor(
             field = value
             layoutDirection = if (value) LAYOUT_DIRECTION_RTL else LAYOUT_DIRECTION_LTR
             languagePicker.rtl = value
+            accentPopup.rtl = value
             invalidate()
         }
 
@@ -96,6 +102,10 @@ class KeyboardRootView @JvmOverloads constructor(
 
     private var currentZone = FocusZone.KEYBOARD
 
+    /** Shift and locale captured when the popup opened; they decide its text. */
+    private var accentShifted = false
+    private var accentLocale = java.util.Locale.getDefault()
+
     private val suggestionsRow = SuggestionsRow(context).apply {
         layoutParams = FrameLayout.LayoutParams(
             ViewGroup.LayoutParams.MATCH_PARENT,
@@ -112,6 +122,14 @@ class KeyboardRootView @JvmOverloads constructor(
     }
 
     private var actionButton: ActionButton? = null
+
+    private val accentPopup = AccentPopupView(context).apply {
+        layoutParams = FrameLayout.LayoutParams(
+            ViewGroup.LayoutParams.MATCH_PARENT,
+            ViewGroup.LayoutParams.WRAP_CONTENT,
+        )
+        visibility = View.GONE
+    }
 
     private val languagePicker = LanguagePickerView(context).apply {
         layoutParams = FrameLayout.LayoutParams(
@@ -143,15 +161,47 @@ class KeyboardRootView @JvmOverloads constructor(
             }
         }
 
-        keyboardView.listener = object : KeyboardView.Listener {
+        keyboardView.listener = object : KeyboardView.Listener, KeyboardView.LongPressListener {
             override fun onKey(key: android.inputmethodservice.Keyboard.Key) {
                 listener?.onKey(key)
+            }
+
+            override fun onLongPressShift() {
+                (listener as? KeyboardView.LongPressListener)?.onLongPressShift()
+            }
+
+            override fun onLongPressLanguage() {
+                (listener as? KeyboardView.LongPressListener)?.onLongPressLanguage()
+            }
+
+            override fun onLongPressKey(key: android.inputmethodservice.Keyboard.Key) {
+                (listener as? KeyboardView.LongPressListener)?.onLongPressKey(key)
             }
         }
 
         addView(suggestionsRow)
         addView(keyboardView)
+        addView(accentPopup)
         addView(languagePicker)
+
+        accentPopup.onSelected = { key ->
+            val text = AccentPopup.textFor(key, accentShifted, accentLocale)
+            accentPopup.hide()
+            requestLayout()
+            requestKeyboardFocus()
+            if (text != null) {
+                listener?.onAccentSelected(text)
+            } else {
+                // Command keys in a popup (clipboard, voice) run the normal
+                // key pipeline instead of inserting their label.
+                listener?.onKey(key)
+            }
+        }
+        accentPopup.onCancel = {
+            accentPopup.hide()
+            requestLayout()
+            requestKeyboardFocus()
+        }
 
         languagePicker.onLanguageSelected = { index ->
             onLanguageSelected?.invoke(index)
@@ -186,6 +236,20 @@ class KeyboardRootView @JvmOverloads constructor(
             MeasureSpec.AT_MOST
         )
         keyboardView.measure(keyboardWidthSpec, keyboardHeightSpec)
+
+        // Measure the accent popup so its wrapped height sits above the keyboard.
+        if (accentPopup.isVisible) {
+            accentPopup.measure(
+                MeasureSpec.makeMeasureSpec(
+                    measuredWidth - paddingLeft - paddingRight,
+                    MeasureSpec.EXACTLY,
+                ),
+                MeasureSpec.makeMeasureSpec(
+                    MeasureSpec.getSize(heightMeasureSpec) - paddingTop - paddingBottom,
+                    MeasureSpec.AT_MOST,
+                ),
+            )
+        }
 
         // Measure action button
         if (actionButton != null) {
@@ -234,6 +298,19 @@ class KeyboardRootView @JvmOverloads constructor(
             paddingLeft, keyboardTop,
             paddingLeft + contentWidth, keyboardBottom
         )
+
+        // The mini keyboard floats directly above the main keyboard, clamped to
+        // the surface so it never draws off-screen.
+        if (accentPopup.isVisible) {
+            val popupHeight = accentPopup.measuredHeight
+            val popupTop = (keyboardView.top - popupHeight).coerceAtLeast(paddingTop)
+            accentPopup.layout(
+                paddingLeft, popupTop,
+                paddingLeft + contentWidth, popupTop + popupHeight
+            )
+        } else {
+            accentPopup.layout(paddingLeft, currentTop, paddingLeft, currentTop)
+        }
     }
 
     override fun onDraw(canvas: Canvas) {
@@ -257,6 +334,31 @@ class KeyboardRootView @JvmOverloads constructor(
     }
 
     val isLanguagePickerVisible: Boolean get() = languagePicker.isVisible
+
+    /**
+     * Open the accent popup above the keyboard for the key's vendored popup
+     * layout. [shifted] and [locale] decide whether the chosen accent is
+     * uppercase; [rtl] mirrors the choices.
+     */
+    fun showAccentPopup(resId: Int, shifted: Boolean, locale: java.util.Locale) {
+        accentShifted = shifted
+        accentLocale = locale
+        accentPopup.palette = palette
+        accentPopup.cyclic = cyclicNavigation
+        accentPopup.rtl = rtl
+        accentPopup.show(resId)
+        requestLayout()
+    }
+
+    fun dismissAccentPopup() {
+        if (accentPopup.isVisible) {
+            accentPopup.hide()
+            requestLayout()
+            requestKeyboardFocus()
+        }
+    }
+
+    val isAccentPopupVisible: Boolean get() = accentPopup.isVisible
 
     /**
      * Apply one [KeyboardState] to the whole surface. This is the single seam
@@ -329,6 +431,10 @@ class KeyboardRootView @JvmOverloads constructor(
         // While the picker is open it owns every D-pad and Back key.
         if (languagePicker.isVisible) {
             return languagePicker.onKeyDown(keyCode, event)
+        }
+        // Likewise the accent popup, even if it has not taken focus itself.
+        if (accentPopup.isVisible) {
+            return accentPopup.onKeyDown(keyCode, event)
         }
         when (keyCode) {
             KeyEvent.KEYCODE_DPAD_UP -> {

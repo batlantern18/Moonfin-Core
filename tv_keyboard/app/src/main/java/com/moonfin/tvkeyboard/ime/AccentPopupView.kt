@@ -2,7 +2,6 @@ package com.moonfin.tvkeyboard.ime
 
 import android.content.Context
 import android.graphics.Canvas
-import android.graphics.Color
 import android.graphics.Paint
 import android.graphics.RectF
 import android.graphics.Typeface
@@ -10,10 +9,11 @@ import android.inputmethodservice.Keyboard
 import android.util.AttributeSet
 import android.view.KeyEvent
 import android.view.View
+import com.moonfin.tvkeyboard.R
 import com.moonfin.tvkeyboard.theme.KeyboardPalette
 import com.moonfin.tvkeyboard.theme.KeyboardStyle
 import com.moonfin.tvkeyboard.theme.ThemeCatalog
-import java.util.Locale
+import com.moonfin.tvkeyboard.theme.VisualTheme
 
 /**
  * Mini keyboard of accent choices shown above the focused key when a letter is
@@ -33,8 +33,8 @@ class AccentPopupView @JvmOverloads constructor(
     var focusedIndex: Int = -1
         private set
 
-    /** Invoked with the chosen key's code and (shift-applied) label text. */
-    var onSelected: ((String) -> Unit)? = null
+    /** Invoked with the chosen popup key so the caller can commit or run it. */
+    var onSelected: ((Keyboard.Key) -> Unit)? = null
 
     /** Invoked when the user dismisses the popup without selecting (Back / past the bottom). */
     var onCancel: (() -> Unit)? = null
@@ -47,6 +47,15 @@ class AccentPopupView @JvmOverloads constructor(
 
     /** Wrap focus at the popup edges, mirroring the keyboard's cyclic option. */
     var cyclic: Boolean = false
+
+    /** Mirror the choices when the active layout reads right-to-left. */
+    var rtl: Boolean = false
+        set(value) {
+            if (field == value) return
+            field = value
+            rebuildCells()
+            invalidate()
+        }
 
     private var keyboard: Keyboard? = null
     private var keys: List<Keyboard.Key> = emptyList()
@@ -70,24 +79,15 @@ class AccentPopupView @JvmOverloads constructor(
         get() = (width - paddingLeft - paddingRight).coerceAtLeast(0)
 
     /** Open the popup for [resId], rendering and focusing its first key. */
-    fun show(resId: Int, shifted: Boolean, locale: Locale) {
-        this.shifted = shifted
-        this.locale = locale
+    fun show(resId: Int) {
         keyboard = Keyboard(context, resId)
-        val kb = keyboard!!
-        keys = kb.keys
-        cells = KeyboardGeometry.scaled(
-            keys = keys.mapIndexed { index, key ->
-                RawKeyRect(index, key.x, key.y, key.width, key.height)
-            },
-            layoutWidth = kb.minWidth,
-            layoutHeight = kb.height,
-            viewWidth = contentWidth.coerceAtLeast(1),
-        )
+        keys = keyboard!!.keys
+        rebuildCells()
         focusedIndex = cells.firstOrNull()?.index ?: 0
         isVisible = true
         visibility = View.VISIBLE
         requestFocus()
+        requestLayout()
         invalidate()
     }
 
@@ -98,9 +98,25 @@ class AccentPopupView @JvmOverloads constructor(
         keys = emptyList()
         cells = emptyList()
         focusedIndex = -1
+        requestLayout()
+        invalidate()
     }
 
-    private fun move(direction: Direction): Boolean {
+    private fun rebuildCells() {
+        val kb = keyboard
+        val availableWidth = contentWidth.coerceAtLeast(1)
+        val scaled = KeyboardGeometry.scaled(
+            keys = keys.mapIndexed { index, key ->
+                RawKeyRect(index, key.x, key.y, key.width, key.height)
+            },
+            layoutWidth = kb?.minWidth ?: 0,
+            layoutHeight = kb?.height ?: 0,
+            viewWidth = availableWidth,
+        )
+        cells = if (rtl) KeyboardGeometry.mirrored(scaled, availableWidth) else scaled
+    }
+
+    private fun move(direction: Direction, cyclic: Boolean = this.cyclic): Boolean {
         val next = KeyboardNavigator.move(cells, focusedIndex, direction, cyclic)
         if (next < 0 || next == focusedIndex) return false
         focusedIndex = next
@@ -125,15 +141,8 @@ class AccentPopupView @JvmOverloads constructor(
 
     override fun onSizeChanged(w: Int, h: Int, oldw: Int, oldh: Int) {
         super.onSizeChanged(w, h, oldw, oldh)
-        val kb = keyboard ?: return
-        cells = KeyboardGeometry.scaled(
-            keys = keys.mapIndexed { index, key ->
-                RawKeyRect(index, key.x, key.y, key.width, key.height)
-            },
-            layoutWidth = kb.minWidth,
-            layoutHeight = kb.height,
-            viewWidth = contentWidth.coerceAtLeast(1),
-        )
+        rebuildCells()
+        invalidate()
     }
 
     override fun onDraw(canvas: Canvas) {
@@ -170,26 +179,48 @@ class AccentPopupView @JvmOverloads constructor(
             val label = key.label?.toString().orEmpty()
             if (label.isNotEmpty()) {
                 textPaint.color = if (focused) palette.textOnSelected else palette.textPrimary
-                textPaint.textSize = (rect.height() * 0.5f).coerceAtLeast(10f * density)
+                fitText(label, rect.width() - 6 * density, rect.height() * 0.5f)
                 val baseline = rect.centerY() - (textPaint.descent() + textPaint.ascent()) / 2f
                 canvas.drawText(label, rect.centerX(), baseline, textPaint)
             }
         }
     }
 
+    /** Shrinks the label until it fits the key instead of clipping it. */
+    private fun fitText(label: String, maxWidth: Float, preferredSize: Float) {
+        var size = preferredSize.coerceAtLeast(10f * density)
+        val minimum = 9 * density
+        textPaint.textSize = size
+        while (size > minimum && textPaint.measureText(label) > maxWidth) {
+            size -= density
+            textPaint.textSize = size
+        }
+    }
+
     override fun onKeyDown(keyCode: Int, event: KeyEvent): Boolean {
+        // The popup owns every direction while it is open, so never let an
+        // unhandled edge event bubble up and move the main keyboard cursor.
         when (keyCode) {
-            KeyEvent.KEYCODE_DPAD_UP -> return move(Direction.UP)
-            KeyEvent.KEYCODE_DPAD_DOWN -> {
-                // Past the bottom row closes the popup without inserting.
-                if (!move(Direction.DOWN)) {
-                    onCancel?.invoke()
-                    hide()
-                }
+            KeyEvent.KEYCODE_DPAD_UP -> {
+                // All vendored popups are a single row, so Up has no row to
+                // move to; never let cyclic wrap turn it into a sideways jump.
+                move(Direction.UP, cyclic = false)
                 return true
             }
-            KeyEvent.KEYCODE_DPAD_LEFT -> return move(Direction.LEFT)
-            KeyEvent.KEYCODE_DPAD_RIGHT -> return move(Direction.RIGHT)
+            KeyEvent.KEYCODE_DPAD_DOWN -> {
+                // Past the bottom row closes the popup without inserting, even
+                // when cyclic navigation is on.
+                if (!move(Direction.DOWN, cyclic = false)) cancel()
+                return true
+            }
+            KeyEvent.KEYCODE_DPAD_LEFT -> {
+                move(Direction.LEFT)
+                return true
+            }
+            KeyEvent.KEYCODE_DPAD_RIGHT -> {
+                move(Direction.RIGHT)
+                return true
+            }
             KeyEvent.KEYCODE_DPAD_CENTER,
             KeyEvent.KEYCODE_ENTER,
             KeyEvent.KEYCODE_NUMPAD_ENTER,
@@ -199,27 +230,30 @@ class AccentPopupView @JvmOverloads constructor(
             }
             KeyEvent.KEYCODE_BACK,
             KeyEvent.KEYCODE_ESCAPE,
-            -> { onCancel?.invoke(); hide(); return true }
+            -> {
+                cancel()
+                return true
+            }
         }
         return super.onKeyDown(keyCode, event)
     }
 
-    private fun selectFocused() {
-        val key = keys.getOrNull(focusedIndex) ?: return
-        onSelected?.invoke(AccentPopup.textFor(key, shifted, locale))
+    private fun cancel() {
+        if (!isVisible) return
+        val callback = onCancel
         hide()
+        callback?.invoke()
     }
 
-    private var shifted: Boolean = false
-        set(value) {
-            field = value
-            invalidate()
-        }
+    private fun selectFocused() {
+        val key = keys.getOrNull(focusedIndex) ?: return
+        hide()
+        onSelected?.invoke(key)
+    }
 
-    private var locale: Locale = Locale.getDefault()
-
-    override fun onKeyUp
     override fun onKeyUp(keyCode: Int, event: KeyEvent): Boolean {
+        // Swallow the release so it never reaches the main keyboard after the
+        // popup has already handled the press.
         when (keyCode) {
             KeyEvent.KEYCODE_DPAD_CENTER,
             KeyEvent.KEYCODE_ENTER,

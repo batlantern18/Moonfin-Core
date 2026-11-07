@@ -34,6 +34,37 @@ class KeyboardGeometryTest {
     }
 
     @Test
+    fun `mirroring puts the first key on the right edge`() {
+        val cells = KeyboardGeometry.scaled(
+            listOf(rect(0, 0, 0), rect(1, 100, 0)),
+            layoutWidth = 200,
+            layoutHeight = 50,
+            viewWidth = 400,
+        )
+
+        val mirrored = KeyboardGeometry.mirrored(cells, viewWidth = 400)
+
+        assertEquals(NavKey(0, 200f, 0f, 400f, 100f), mirrored[0])
+        assertEquals(NavKey(1, 0f, 0f, 200f, 100f), mirrored[1])
+    }
+
+    @Test
+    fun `mirroring keeps each key's index and row`() {
+        val cells = KeyboardGeometry.scaled(
+            listOf(rect(0, 0, 0), rect(1, 100, 100)),
+            layoutWidth = 200,
+            layoutHeight = 150,
+            viewWidth = 200,
+        )
+
+        val mirrored = KeyboardGeometry.mirrored(cells, viewWidth = 200)
+
+        assertEquals(listOf(0, 1), mirrored.map { it.index })
+        assertEquals(cells[1].top, mirrored[1].top, 0.001f)
+        assertEquals(cells[1].bottom, mirrored[1].bottom, 0.001f)
+    }
+
+    @Test
     fun `a zero width view produces no cells instead of dividing by zero`() {
         assertTrue(KeyboardGeometry.scaled(listOf(rect(0, 0, 0)), 200, 100, 0).isEmpty())
     }

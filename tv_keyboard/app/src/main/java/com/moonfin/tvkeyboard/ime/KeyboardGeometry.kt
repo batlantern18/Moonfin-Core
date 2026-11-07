@@ -40,4 +40,17 @@ object KeyboardGeometry {
         if (layoutWidth <= 0 || layoutHeight <= 0 || viewWidth <= 0) return 0
         return (layoutHeight.toFloat() / layoutWidth * viewWidth).toInt()
     }
+
+    /**
+     * Mirrors every key horizontally inside [viewWidth]. Right-to-left layouts
+     * read from the right edge, and the popup uses the same geometric
+     * navigation afterwards, so mirroring the rectangles is all it takes.
+     */
+    fun mirrored(keys: List<NavKey>, viewWidth: Int): List<NavKey> {
+        if (keys.isEmpty() || viewWidth <= 0) return keys
+        val width = viewWidth.toFloat()
+        return keys.map { key ->
+            key.copy(left = width - key.right, right = width - key.left)
+        }
+    }
 }
