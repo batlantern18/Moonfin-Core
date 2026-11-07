@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Moonfin design tokens (packages/design/lib/src/theme). -->
+    <color name="moonfin_background">#FF101010</color>
+    <color name="moonfin_surface">#FF1A1A1A</color>
+    <color name="moonfin_surface_variant">#FF252525</color>
+    <color name="moonfin_on_surface">#FFFFFFFF</color>
+    <color name="moonfin_accent">#FF00A4DC</color>
+    <color name="moonfin_button_normal">#FF2A2A2A</color>
+    <color name="moonfin_button_focused">#FFFFFFFF</color>
+    <color name="moonfin_on_button_focused">#FF00A4DC</color>
+    <color name="moonfin_input_background">#FF2A2A2A</color>
+    <color name="moonfin_input_border">#FF404040</color>
+    <color name="moonfin_chip_background">#1F8EC8F0</color>
+
+    <color name="neon_background">#FF0B0420</color>
+    <color name="neon_surface">#CC1E0A3F</color>
+    <color name="neon_on_surface">#FF00E5FF</color>
+    <color name="neon_accent">#FFFF2E92</color>
+
+    <color name="glass_background">#CC07090F</color>
+    <color name="glass_surface">#D90E1117</color>
+    <color name="glass_accent">#FF0A84FF</color>
+
+    <color name="eightbit_background">#FF1A1C2C</color>
+    <color name="eightbit_surface">#FF333C57</color>
+    <color name="eightbit_on_surface">#FFF4F4F4</color>
+    <color name="eightbit_accent">#FFEF7D57</color>
+    <color name="eightbit_focus">#FFFFCD75</color>
+
+    <color name="black">#FF000000</color>
+    <color name="white">#FFFFFFFF</color>
+    <color name="transparent">#00000000</color>
+</resources>
