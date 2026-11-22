@@ -17,15 +17,25 @@ class VoiceInputController(
     private val onError: (message: String) -> Unit,
 ) {
     private var recognizer: SpeechRecognizer? = null
+    var state: VoiceState = VoiceState.IDLE
+        private set
+
+    var onStateChanged: ((VoiceState, String) -> Unit)? = null
 
     fun start() {
         if (!hasMicrophonePermission()) {
-            onError("Microphone permission not granted. Enable in Settings > Apps > Moonfin Keyboard > Permissions.")
+            val err = "Microphone permission not granted. Enable in Settings > Apps > Moonfin Keyboard > Permissions."
+            state = VoiceState.ERROR
+            onStateChanged?.invoke(state, err)
+            onError(err)
             return
         }
 
         if (!SpeechRecognizer.isRecognitionAvailable(context)) {
-            onError("Speech recognition not available on this device.")
+            val err = "Speech recognition not available on this device."
+            state = VoiceState.ERROR
+            onStateChanged?.invoke(state, err)
+            onError(err)
             return
         }
 
@@ -41,7 +51,10 @@ class VoiceInputController(
         try {
             recognizer?.startListening(intent)
         } catch (e: Exception) {
-            onError("Failed to start voice input.")
+            val err = "Failed to start voice input."
+            state = VoiceState.ERROR
+            onStateChanged?.invoke(state, err)
+            onError(err)
         }
     }
 
@@ -49,6 +62,10 @@ class VoiceInputController(
         recognizer?.stopListening()
         recognizer?.destroy()
         recognizer = null
+        if (state != VoiceState.IDLE) {
+            state = VoiceState.IDLE
+            onStateChanged?.invoke(state, "")
+        }
     }
 
     private fun hasMicrophonePermission(): Boolean {
@@ -58,12 +75,15 @@ class VoiceInputController(
 
     private fun createListener(): RecognitionListener {
         return object : RecognitionListener {
-            override fun onReadyForSpeech(params: android.os.Bundle) {}
+            override fun onReadyForSpeech(params: android.os.Bundle) {
+                state = VoiceState.LISTENING
+                onStateChanged?.invoke(state, "")
+            }
             override fun onBeginningOfSpeech() {}
             override fun onRmsChanged(rmsdB: Float) {}
             override fun onBufferReceived(buffer: ByteArray?) {}
             override fun onEndOfSpeech() {}
-            
+
             override fun onError(error: Int) {
                 val message = when (error) {
                     SpeechRecognizer.ERROR_AUDIO -> "Audio error. Check microphone."
@@ -77,17 +97,21 @@ class VoiceInputController(
                     SpeechRecognizer.ERROR_SPEECH_TIMEOUT -> "No speech detected."
                     else -> "Voice input error."
                 }
+                state = VoiceState.ERROR
+                onStateChanged?.invoke(state, message)
                 onError(message)
             }
-            
+
             override fun onResults(results: android.os.Bundle) {
+                state = VoiceState.IDLE
+                onStateChanged?.invoke(state, "")
                 val words = results.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)
                 val text = words?.firstOrNull()
                 if (text != null && text.isNotBlank()) {
                     onResult(text)
                 }
             }
-            
+
             override fun onPartialResults(partialResults: android.os.Bundle) {}
             override fun onEvent(eventType: Int, params: android.os.Bundle) {}
         }

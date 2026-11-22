@@ -33,7 +33,16 @@ class KeyboardView @JvmOverloads constructor(
         fun onKey(key: Keyboard.Key)
     }
 
+    interface EdgeListener {
+        fun onEdgeLeft()
+        fun onEdgeRight()
+        fun onEdgeUp()
+        fun onEdgeDown()
+    }
+
     var listener: Listener? = null
+    var edgeListener: EdgeListener? = null
+    var feedbackController: FeedbackController? = null
 
     var palette: KeyboardPalette = ThemeCatalog.palette(VisualTheme.MOONFIN, KeyboardStyle.DOCKED)
         set(value) {
@@ -65,6 +74,34 @@ class KeyboardView @JvmOverloads constructor(
             invalidate()
         }
 
+    var spaceBarLanguageName: String = ""
+        set(value) {
+            if (field == value) return
+            field = value
+            invalidate()
+        }
+
+    var enlarge: Boolean = false
+        set(value) {
+            if (field == value) return
+            field = value
+            requestLayout()
+        }
+
+    var voiceState: VoiceState = VoiceState.IDLE
+        set(value) {
+            if (field == value) return
+            field = value
+            invalidate()
+        }
+
+    var voiceError: String = ""
+        set(value) {
+            if (field == value) return
+            field = value
+            invalidate()
+        }
+
     private val density: Float get() = resources.displayMetrics.density
 
     private var keys: List<Keyboard.Key> = emptyList()
@@ -78,6 +115,11 @@ class KeyboardView @JvmOverloads constructor(
     private var longPressRunnable: Runnable? = null
     private var longPressKey: Keyboard.Key? = null
 
+    // Held-key repeat for Delete and cursor keys (Issue #32)
+    private val repeatHandler = Handler(Looper.getMainLooper())
+    private var repeatRunnable: Runnable? = null
+    private var repeatingKeyIndex: Int = -1
+
     /**
      * Key with a popup that is waiting for key-up. Popup keys type their base
      * character on release, so a hold can open the mini keyboard first.
@@ -85,6 +127,8 @@ class KeyboardView @JvmOverloads constructor(
     private var pendingPopupKey: Keyboard.Key? = null
 
     private val LONG_PRESS_DELAY_MS = 500L
+    private val REPEAT_DELAY_MS = 400L
+    private val REPEAT_INTERVAL_MS = 50L
 
     private val keyPaint = Paint(Paint.ANTI_ALIAS_FLAG)
     private val textPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
@@ -115,11 +159,13 @@ class KeyboardView @JvmOverloads constructor(
         val desiredHeight = if (kb == null) {
             (220 * density).toInt()
         } else {
-            KeyboardGeometry.contentHeight(
+            val baseContentHeight = KeyboardGeometry.contentHeight(
                 layoutWidth = kb.minWidth,
                 layoutHeight = kb.height,
                 viewWidth = (measuredWidth - paddingLeft - paddingRight).coerceAtLeast(1),
-            ) + paddingTop + paddingBottom
+            )
+            val scaledHeight = if (enlarge) (baseContentHeight * 1.25f).toInt() else baseContentHeight
+            scaledHeight + paddingTop + paddingBottom
         }
         setMeasuredDimension(measuredWidth, resolveSize(desiredHeight, heightMeasureSpec))
     }
@@ -164,11 +210,20 @@ class KeyboardView @JvmOverloads constructor(
             pressedIndex = -1
             contentDescription = keys.getOrNull(next)?.let(::describe)
             invalidate()
+        } else if (next == focusedIndex) {
+            // At the edge: notify EdgeListener
+            when (direction) {
+                Direction.UP -> edgeListener?.onEdgeUp()
+                Direction.DOWN -> edgeListener?.onEdgeDown()
+                Direction.LEFT -> edgeListener?.onEdgeLeft()
+                Direction.RIGHT -> edgeListener?.onEdgeRight()
+            }
         }
     }
 
     private fun activate(index: Int) {
         val key = keys.getOrNull(index) ?: return
+        feedbackController?.onKeyPress(this)
         listener?.onKey(key)
     }
 
@@ -192,6 +247,30 @@ class KeyboardView @JvmOverloads constructor(
                 paddingTop + cell.bottom - insetY,
             )
             drawKey(canvas, key, rect, radius, focused = index == focusedIndex, pressed = index == pressedIndex)
+        }
+
+        // Inline voice status banner
+        if (voiceState != VoiceState.IDLE) {
+            val bannerHeight = 28 * density
+            val bannerRect = RectF(
+                paddingLeft.toFloat() + 8 * density,
+                paddingTop.toFloat() + 4 * density,
+                (width - paddingRight).toFloat() - 8 * density,
+                paddingTop.toFloat() + 4 * density + bannerHeight
+            )
+            keyPaint.style = Paint.Style.FILL
+            keyPaint.color = if (voiceState == VoiceState.LISTENING) palette.accent else 0xFFB00020.toInt()
+            canvas.drawRoundRect(bannerRect, 6 * density, 6 * density, keyPaint)
+
+            textPaint.color = if (voiceState == VoiceState.LISTENING) palette.accentText else 0xFFFFFFFF.toInt()
+            textPaint.textSize = 14 * density
+            val bannerText = if (voiceState == VoiceState.LISTENING) {
+                "🎤 Listening…"
+            } else {
+                "⚠ " + voiceError.ifEmpty { "Voice input error" }
+            }
+            val textBaseline = bannerRect.centerY() - (textPaint.descent() + textPaint.ascent()) / 2f
+            canvas.drawText(bannerText, bannerRect.centerX(), textBaseline, textPaint)
         }
     }
 
@@ -251,7 +330,7 @@ class KeyboardView @JvmOverloads constructor(
         val code = key.codes.firstOrNull() ?: return ""
         return when (code) {
             KeyCodes.DELETE -> "Del"
-            KeyCodes.SPACE -> "Space"
+            KeyCodes.SPACE -> if (spaceBarLanguageName.isNotEmpty()) spaceBarLanguageName else "Space"
             KeyCodes.MODE_CHANGE -> "?123"
             KeyCodes.LANGUAGE -> "Lang"
             KeyCodes.LEFT -> "<"
@@ -278,18 +357,22 @@ class KeyboardView @JvmOverloads constructor(
             KeyEvent.KEYCODE_ENTER,
             KeyEvent.KEYCODE_NUMPAD_ENTER,
             -> {
-                // Held remotes repeat the event; only the first press counts.
                 if (event.repeatCount == 0) {
                     val focusedKey = keys.getOrNull(focusedIndex)
                     if (focusedKey != null) {
+                        val primaryCode = focusedKey.codes.firstOrNull() ?: 0
+                        if (KeyRepeatPolicy.DEFAULT.isRepeatKey(primaryCode)) {
+                            // First press acts immediately
+                            activate(focusedIndex)
+                            startRepeatTimer(focusedIndex)
+                            return true
+                        }
                         when {
-                            focusedKey.codes.firstOrNull() in LONG_PRESS_CODES -> {
-                                // Start the long-press timer (caps lock, language picker).
+                            primaryCode in LONG_PRESS_CODES -> {
                                 startLongPressTimer(focusedKey)
                                 activate(focusedIndex)
                             }
                             AccentPopup.hasPopup(focusedKey) -> {
-                                // Type on release unless the hold wins.
                                 pendingPopupKey = focusedKey
                                 startLongPressTimer(focusedKey)
                             }
@@ -309,9 +392,8 @@ class KeyboardView @JvmOverloads constructor(
             KeyEvent.KEYCODE_ENTER,
             KeyEvent.KEYCODE_NUMPAD_ENTER,
             -> {
+                cancelRepeatTimer()
                 cancelLongPressTimer()
-                // A popup key that was released before the hold threshold types
-                // its base character exactly once.
                 val pending = pendingPopupKey
                 pendingPopupKey = null
                 if (pending != null) {
@@ -322,6 +404,26 @@ class KeyboardView @JvmOverloads constructor(
             }
         }
         return super.onKeyUp(keyCode, event)
+    }
+
+    private fun startRepeatTimer(keyIndex: Int) {
+        cancelRepeatTimer()
+        repeatingKeyIndex = keyIndex
+        repeatRunnable = object : Runnable {
+            override fun run() {
+                if (repeatingKeyIndex >= 0) {
+                    activate(repeatingKeyIndex)
+                    repeatHandler.postDelayed(this, REPEAT_INTERVAL_MS)
+                }
+            }
+        }
+        repeatHandler.postDelayed(repeatRunnable!!, REPEAT_DELAY_MS)
+    }
+
+    private fun cancelRepeatTimer() {
+        repeatRunnable?.let { repeatHandler.removeCallbacks(it) }
+        repeatRunnable = null
+        repeatingKeyIndex = -1
     }
 
     private fun startLongPressTimer(key: Keyboard.Key) {
@@ -340,12 +442,11 @@ class KeyboardView @JvmOverloads constructor(
     private fun onLongPress() {
         val key = longPressKey ?: keys.getOrNull(focusedIndex) ?: return
         longPressKey = null
+        feedbackController?.onLongPressOpen(this)
         when (key.codes.firstOrNull()) {
             KeyCodes.SHIFT -> (listener as? LongPressListener)?.onLongPressShift()
             KeyCodes.LANGUAGE, KeyCodes.SPACE -> (listener as? LongPressListener)?.onLongPressLanguage()
             else -> if (AccentPopup.hasPopup(key)) {
-                // The hold won: swallow the release so the base character is
-                // never typed before the mini keyboard opens.
                 pendingPopupKey = null
                 (listener as? LongPressListener)?.onLongPressKey(key)
             }
@@ -355,13 +456,10 @@ class KeyboardView @JvmOverloads constructor(
     interface LongPressListener {
         fun onLongPressShift()
         fun onLongPressLanguage()
-
-        /** A key with a vendored popup layout was held. */
         fun onLongPressKey(key: Keyboard.Key)
     }
 
     private companion object {
-        /** Keys that open a long-press action (caps lock, language picker). */
         val LONG_PRESS_CODES = setOf(KeyCodes.SHIFT, KeyCodes.LANGUAGE, KeyCodes.SPACE)
     }
 
@@ -375,8 +473,6 @@ class KeyboardView @JvmOverloads constructor(
                 contentDescription = keys.getOrNull(index)?.let(::describe)
                 val key = keys.getOrNull(index)
                 if (key != null && AccentPopup.hasPopup(key)) {
-                    // A tap types the base character on release; a hold opens
-                    // the mini keyboard instead.
                     pendingPopupKey = key
                     startLongPressTimer(key)
                 }
@@ -397,6 +493,7 @@ class KeyboardView @JvmOverloads constructor(
                 val pending = pendingPopupKey
                 pendingPopupKey = null
                 cancelLongPressTimer()
+                cancelRepeatTimer()
                 invalidate()
                 if (pressed >= 0 && released == pressed) {
                     val key = keys.getOrNull(pressed)
@@ -412,6 +509,7 @@ class KeyboardView @JvmOverloads constructor(
                 pressedIndex = -1
                 pendingPopupKey = null
                 cancelLongPressTimer()
+                cancelRepeatTimer()
                 invalidate()
                 return true
             }

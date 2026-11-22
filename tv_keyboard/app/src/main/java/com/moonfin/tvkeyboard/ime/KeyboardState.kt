@@ -57,6 +57,10 @@ data class KeyboardState(
         val suggestionsEnabled: Boolean,
         val enlarge: Boolean,
         val keepOnScreen: Boolean,
+        val hapticFeedback: Boolean = true,
+        val keyClickSound: Boolean = false,
+        val voiceState: VoiceState = VoiceState.IDLE,
+        val voiceError: String = "",
     )
 
     companion object {
@@ -69,6 +73,8 @@ data class KeyboardState(
             session: KeyboardSession,
             preferences: KeyboardPreferences,
             suggestions: List<Suggestion> = emptyList(),
+            voiceState: VoiceState = VoiceState.IDLE,
+            voiceError: String = "",
         ): KeyboardState =
             KeyboardState(
                 session = SessionState(
@@ -91,6 +97,10 @@ data class KeyboardState(
                     suggestionsEnabled = preferences.suggestionsEnabled,
                     enlarge = preferences.enlarge,
                     keepOnScreen = preferences.keepOnScreen,
+                    hapticFeedback = preferences.hapticFeedback,
+                    keyClickSound = preferences.keyClickSound,
+                    voiceState = voiceState,
+                    voiceError = voiceError,
                 ),
             )
     }

@@ -1,15 +1,18 @@
 package com.moonfin.tvkeyboard.settings
 import com.moonfin.tvkeyboard.BuildConfig
 
+import android.Manifest
 import android.app.Activity
 import android.content.ActivityNotFoundException
 import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
-import android.content.pm.ResolveInfo
 import android.content.res.ColorStateList
+import android.graphics.Canvas
 import android.graphics.Color
+import android.graphics.Paint
+import android.graphics.RectF
 import android.graphics.drawable.ColorDrawable
 import android.graphics.drawable.GradientDrawable
 import android.os.Build
@@ -22,7 +25,6 @@ import android.view.ViewGroup
 import android.view.inputmethod.InputMethodManager
 import android.widget.Button
 import android.widget.CheckBox
-import android.widget.CompoundButton
 import android.widget.LinearLayout
 import android.widget.RadioButton
 import android.widget.RadioGroup
@@ -34,7 +36,9 @@ import com.moonfin.tvkeyboard.ime.LanguageLayout
 import com.moonfin.tvkeyboard.ime.LanguageRegistry
 import com.moonfin.tvkeyboard.ime.TvKeyboardService
 import com.moonfin.tvkeyboard.prefs.KeyboardPreferences
+import com.moonfin.tvkeyboard.theme.KeyboardPalette
 import com.moonfin.tvkeyboard.theme.KeyboardStyle
+import com.moonfin.tvkeyboard.theme.ThemeCatalog
 import com.moonfin.tvkeyboard.theme.VisualTheme
 
 /**
@@ -44,7 +48,6 @@ import com.moonfin.tvkeyboard.theme.VisualTheme
  */
 class MainActivity : Activity() {
 
-    // Constants for system settings intents
     companion object {
         const val IME_PACKAGE_NAME = "com.moonfin.tvkeyboard"
         const val IME_CLASS_NAME = "com.moonfin.tvkeyboard.ime.TvKeyboardService"
@@ -58,6 +61,8 @@ class MainActivity : Activity() {
     private lateinit var scrollView: ScrollView
     private lateinit var contentLayout: LinearLayout
     private var lastFocusedView: View? = null
+
+    private var previewCard: KeyboardPreviewCard? = null
 
     // Section views for focus restoration
     private var activationSection: View? = null
@@ -94,7 +99,7 @@ class MainActivity : Activity() {
     override fun onResume() {
         super.onResume()
         refreshActivationStatus()
-        // Restore focus to last focused view or first focusable
+        updatePreview()
         (lastFocusedView ?: findFirstFocusable(contentLayout))?.requestFocus()
     }
 
@@ -104,10 +109,7 @@ class MainActivity : Activity() {
     }
 
     override fun onKeyDown(keyCode: Int, event: KeyEvent): Boolean {
-        // Handle Back key to navigate up or exit
         if (keyCode == KeyEvent.KEYCODE_BACK) {
-            // If a dialog or sub-screen is open, close it
-            // For now, just finish the activity
             finish()
             return true
         }
@@ -116,11 +118,13 @@ class MainActivity : Activity() {
 
     private fun buildAllSections() {
         contentLayout.addView(buildHeader())
+        contentLayout.addView(buildPreviewSection())
         contentLayout.addView(buildActivationSection())
         contentLayout.addView(buildLayoutSection())
         contentLayout.addView(buildThemeSection())
         contentLayout.addView(buildStyleSection())
         contentLayout.addView(buildOptionsSection())
+        contentLayout.addView(buildResetSection())
         contentLayout.addView(buildAboutSection())
     }
 
@@ -148,11 +152,28 @@ class MainActivity : Activity() {
         }
     }
 
+    private fun buildPreviewSection(): LinearLayout {
+        val section = buildSectionContainer(R.string.section_preview)
+        val card = KeyboardPreviewCard(this).apply {
+            layoutParams = LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                dp(120)
+            )
+            palette = ThemeCatalog.palette(preferences.theme, preferences.style)
+        }
+        previewCard = card
+        section.addView(card)
+        return section
+    }
+
+    private fun updatePreview() {
+        previewCard?.palette = ThemeCatalog.palette(preferences.theme, preferences.style)
+    }
+
     private fun buildActivationSection(): LinearLayout {
         val section = buildSectionContainer(R.string.section_activation)
         activationSection = section
 
-        // Status card
         val statusCard = buildCard()
         val statusText = TextView(this).apply {
             id = View.generateViewId()
@@ -164,7 +185,6 @@ class MainActivity : Activity() {
         statusCard.addView(statusText)
         section.addView(statusCard, lpMatchWidth(dp(16)))
 
-        // Buttons row
         val buttonRow = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_HORIZONTAL
@@ -180,8 +200,8 @@ class MainActivity : Activity() {
     }
 
     private fun refreshActivationStatus() {
-        val statusCard = (activationSection as LinearLayout).getChildAt(0) as LinearLayout
-        val statusView = statusCard.getChildAt(0) as TextView
+        val statusCard = (activationSection as? LinearLayout)?.getChildAt(0) as? LinearLayout ?: return
+        val statusView = statusCard.getChildAt(0) as? TextView ?: return
 
         val component = imeComponent()
         val enabled = inputMethodManager.enabledInputMethodList.any {
@@ -232,7 +252,6 @@ class MainActivity : Activity() {
         val checkbox = CheckBox(this).apply {
             isChecked = enabled
             isFocusable = false
-            // Use a custom drawable for TV focus
             buttonTintList = ColorStateList.valueOf(color(R.color.moonfin_accent))
         }
         checkbox.setOnCheckedChangeListener { _, isChecked ->
@@ -285,7 +304,10 @@ class MainActivity : Activity() {
                 isChecked = preferences.theme == theme
                 buttonTintList = ColorStateList.valueOf(color(R.color.moonfin_accent))
                 setPadding(dp(16), dp(12), dp(16), dp(12))
-                setOnClickListener { preferences.theme = theme }
+                setOnClickListener {
+                    preferences.theme = theme
+                    updatePreview()
+                }
             }
             radioGroup.addView(radio, lpMatchWidth(dp(8)))
         }
@@ -326,7 +348,10 @@ class MainActivity : Activity() {
                 isChecked = preferences.style == style
                 buttonTintList = ColorStateList.valueOf(color(R.color.moonfin_accent))
                 setPadding(dp(16), dp(12), dp(16), dp(12))
-                setOnClickListener { preferences.style = style }
+                setOnClickListener {
+                    preferences.style = style
+                    updatePreview()
+                }
             }
             radioGroup.addView(radio, lpMatchWidth(dp(8)))
         }
@@ -353,7 +378,17 @@ class MainActivity : Activity() {
             OptionItem(R.string.option_hide_physical, R.string.option_hide_physical_desc,
                 { preferences.hideForPhysicalKeyboard }, { preferences.hideForPhysicalKeyboard = it }),
             OptionItem(R.string.option_voice, R.string.option_voice_desc,
-                { preferences.voiceEnabled }, { preferences.voiceEnabled = it }),
+                { preferences.voiceEnabled }, { enabled ->
+                    preferences.voiceEnabled = enabled
+                    if (enabled && Build.VERSION.SDK_INT >= Build.VERSION_CODES.M &&
+                        checkSelfPermission(Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
+                        requestPermissions(arrayOf(Manifest.permission.RECORD_AUDIO), 101)
+                    }
+                }),
+            OptionItem(R.string.option_haptic, R.string.option_haptic_desc,
+                { preferences.hapticFeedback }, { preferences.hapticFeedback = it }),
+            OptionItem(R.string.option_sound, R.string.option_sound_desc,
+                { preferences.keyClickSound }, { preferences.keyClickSound = it }),
         )
 
         options.forEach { option ->
@@ -362,6 +397,34 @@ class MainActivity : Activity() {
         }
 
         return section
+    }
+
+    private fun buildResetSection(): LinearLayout {
+        val section = buildSectionContainer(R.string.section_reset)
+        val button = actionButton(getString(R.string.action_reset_defaults)) {
+            resetToDefaults()
+        }
+        section.addView(button, lpMatchWidth(dp(16)))
+        return section
+    }
+
+    fun resetToDefaults() {
+        preferences.reset()
+        preferences.theme = VisualTheme.MOONFIN
+        preferences.style = KeyboardStyle.DOCKED
+        preferences.suggestionsEnabled = true
+        preferences.cyclicNavigation = false
+        preferences.autoSpace = true
+        preferences.keepOnScreen = true
+        preferences.enlarge = false
+        preferences.hideForPhysicalKeyboard = false
+        preferences.voiceEnabled = true
+        preferences.autodetectLanguage = false
+        preferences.hapticFeedback = true
+        preferences.keyClickSound = false
+        preferences.setEnabledLanguageKeys(listOf(KeyboardPreferences.DEFAULT_LANGUAGE))
+        Toast.makeText(this, "Settings reset to defaults", Toast.LENGTH_SHORT).show()
+        recreate()
     }
 
     private fun buildOptionRow(
@@ -460,10 +523,12 @@ class MainActivity : Activity() {
         }
         val defaultId = Settings.Secure.getString(contentResolver, Settings.Secure.DEFAULT_INPUT_METHOD)
         val selected = defaultId == component.flattenToShortString() || defaultId == component.flattenToString()
-        return "${if (enabled) "Enabled" else "Disabled"}, ${if (selected) "Selected" else "Not selected"}"
+        return when {
+            enabled && selected -> "Active and selected"
+            enabled -> "Enabled (not selected)"
+            else -> "Not enabled"
+        }
     }
-
-    // Helper functions for building UI
 
     private fun buildSectionContainer(titleRes: Int): LinearLayout {
         return LinearLayout(this).apply {
@@ -502,11 +567,7 @@ class MainActivity : Activity() {
             cornerRadius = dp(8).toFloat()
             setStroke(dp(2), color(R.color.moonfin_accent))
         }
-        val stateList = android.graphics.drawable.StateListDrawable().apply {
-            addState(intArrayOf(android.R.attr.state_focused), focused)
-            addState(intArrayOf(), normal)
-        }
-        return focused // Simplified for now
+        return focused
     }
 
     private fun actionButton(label: String, onClick: () -> Unit): Button {
@@ -546,8 +607,6 @@ class MainActivity : Activity() {
         params.bottomMargin = dp(bottomMargin)
         return params
     }
-
-    
 
     private fun lpButton(): LinearLayout.LayoutParams {
         return LinearLayout.LayoutParams(
@@ -597,5 +656,34 @@ class MainActivity : Activity() {
             }
         }
         return null
+    }
+}
+
+/** Lightweight static preview: draws 3 rows of key-colored rectangles. */
+class KeyboardPreviewCard(context: Context) : View(context) {
+    var palette: KeyboardPalette = ThemeCatalog.palette(VisualTheme.MOONFIN, KeyboardStyle.DOCKED)
+        set(value) { field = value; invalidate() }
+
+    private val keyPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.FILL }
+    private val density: Float get() = resources.displayMetrics.density
+
+    override fun onDraw(canvas: Canvas) {
+        super.onDraw(canvas)
+        canvas.drawColor(palette.panel)
+        val rows = 3
+        val cols = 10
+        val padding = 8 * density
+        val w = (width - 2 * padding) / cols
+        val h = (height - 2 * padding) / rows
+        val radius = 4 * density
+        for (row in 0 until rows) {
+            for (col in 0 until cols) {
+                val left = padding + col * w + 2 * density
+                val top = padding + row * h + 2 * density
+                val rect = RectF(left, top, left + w - 4 * density, top + h - 4 * density)
+                keyPaint.color = if (row == 1 && col == 4) palette.selectedKey else palette.idleKey
+                canvas.drawRoundRect(rect, radius, radius, keyPaint)
+            }
+        }
     }
 }

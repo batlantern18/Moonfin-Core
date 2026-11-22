@@ -1,6 +1,7 @@
 package com.moonfin.tvkeyboard.ime
 
 import android.content.pm.PackageManager
+import android.content.res.Configuration
 import android.inputmethodservice.InputMethodService
 import android.text.InputType
 import android.view.KeyEvent
@@ -19,23 +20,45 @@ class TvKeyboardService : InputMethodService(), KeyboardRootView.Listener, Keybo
     private lateinit var session: KeyboardSession
     private lateinit var suggestionEngine: SuggestionEngine
     private var rootView: KeyboardRootView? = null
-    
+
     private var voiceInputController: VoiceInputController? = null
     private var clipboardController: ClipboardController? = null
+    private var feedbackController: FeedbackController? = null
+
+    private var currentVoiceState: VoiceState = VoiceState.IDLE
+    private var currentVoiceError: String = ""
 
     override fun onCreate() {
         super.onCreate()
         preferences = KeyboardPreferences(this)
         session = KeyboardSession(this, preferences)
-        suggestionEngine = SuggestionEngine { _ -> emptyList() }
-        
+
+        val words = BundledWordList.words(this)
+        suggestionEngine = SuggestionEngine { prefix ->
+            BundledWordList.completionsFor(prefix, words)
+        }
+
+        feedbackController = FeedbackController(
+            this,
+            preferences.hapticFeedback,
+            preferences.keyClickSound,
+        )
+
         voiceInputController = VoiceInputController(this, { text ->
             commit(text)
             updateSuggestions()
         }, { message ->
-            Toast.makeText(this, message, Toast.LENGTH_LONG).show()
-        })
-        
+            currentVoiceState = VoiceState.ERROR
+            currentVoiceError = message
+            syncView()
+        }).also { controller ->
+            controller.onStateChanged = { state, error ->
+                currentVoiceState = state
+                currentVoiceError = error
+                syncView()
+            }
+        }
+
         clipboardController = ClipboardController(this, { text ->
             commit(text)
             updateSuggestions()
@@ -44,12 +67,40 @@ class TvKeyboardService : InputMethodService(), KeyboardRootView.Listener, Keybo
 
     override fun onEvaluateFullscreenMode(): Boolean = false
 
+    override fun onEvaluateInputViewShown(): Boolean {
+        if (preferences.hideForPhysicalKeyboard && isHardKeyboardConnected()) return false
+        if (preferences.keepOnScreen) return true
+        return super.onEvaluateInputViewShown()
+    }
+
+    private fun isHardKeyboardConnected(): Boolean {
+        val config = resources.configuration
+        return config.keyboard != Configuration.KEYBOARD_NOKEYS &&
+            config.hardKeyboardHidden == Configuration.HARDKEYBOARDHIDDEN_NO
+    }
+
+    override fun onConfigurationChanged(newConfig: Configuration) {
+        super.onConfigurationChanged(newConfig)
+        if (preferences.hideForPhysicalKeyboard) {
+            updateInputViewShown()
+        }
+    }
+
     override fun onCreateInputView(): View {
         val view = KeyboardRootView(this)
         view.listener = this
+        view.keyboardView.feedbackController = feedbackController
         view.onLanguageSelected = { index -> onLanguageSelected(index) }
         view.onLanguagePickerCancelled = {
             rootView?.dismissLanguagePicker()
+        }
+        view.clipboardOverlay.onPaste = { item ->
+            commit(item.text)
+            if (preferences.autoSpace) {
+                currentInputConnection?.commitText(" ", 1)
+            }
+            rootView?.requestKeyboardFocus()
+            updateSuggestions()
         }
         rootView = view
         syncView()
@@ -68,6 +119,16 @@ class TvKeyboardService : InputMethodService(), KeyboardRootView.Listener, Keybo
         super.onStartInputView(info, restarting)
         syncView()
         updateSuggestions()
+    }
+
+    override fun onFinishInputView(finishingInput: Boolean) {
+        super.onFinishInputView(finishingInput)
+        voiceInputController?.stop()
+    }
+
+    override fun onFinishInput() {
+        super.onFinishInput()
+        voiceInputController?.stop()
     }
 
     override fun onKeyDown(keyCode: Int, event: KeyEvent): Boolean {
@@ -133,6 +194,7 @@ class TvKeyboardService : InputMethodService(), KeyboardRootView.Listener, Keybo
 
     /** A character was chosen in the popup; one-shot Shift is consumed. */
     override fun onAccentSelected(text: String) {
+        rootView?.let { feedbackController?.onPopupSelection(it) }
         commit(text)
         session.consumeShift()
         updateSuggestions()
@@ -167,7 +229,14 @@ class TvKeyboardService : InputMethodService(), KeyboardRootView.Listener, Keybo
     private fun syncView() {
         val view = rootView ?: return
         val suggestions = if (preferences.suggestionsEnabled) currentSuggestions() else emptyList()
-        val state = KeyboardState.from(session, preferences, suggestions)
+        val state = KeyboardState.from(
+            session = session,
+            preferences = preferences,
+            suggestions = suggestions,
+            voiceState = currentVoiceState,
+            voiceError = currentVoiceError,
+        )
+        feedbackController?.updatePreferences(preferences.hapticFeedback, preferences.keyClickSound)
         view.apply(state, session.keyboard)
         setInputViewBackground(view)
     }
@@ -225,13 +294,9 @@ class TvKeyboardService : InputMethodService(), KeyboardRootView.Listener, Keybo
     }
 
     private fun showClipboardOverlay() {
-        val clips = clipboardController?.getRecentClips()?.filter { it.text.isNotBlank() } ?: emptyList()
-        if (clips.isEmpty()) {
-            Toast.makeText(this, "Clipboard empty. Copy text in another app first.", Toast.LENGTH_LONG).show()
-            return
-        }
-        val text = clips.firstOrNull()?.text ?: return
-        commit(text)
+        val clips = clipboardController?.snapshot()?.filter { it.text.isNotBlank() } ?: emptyList()
+        val view = rootView ?: return
+        view.showClipboardOverlay(clips)
     }
 
     companion object {

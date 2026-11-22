@@ -111,6 +111,18 @@ class KeyboardPreferencesTest {
     }
 
     @Test
+    fun `hapticFeedback defaults to true`() {
+        `when`(prefs.getBoolean(KeyboardPreferences.KEY_HAPTIC, true)).thenReturn(true)
+        assertTrue(preferences.hapticFeedback)
+    }
+
+    @Test
+    fun `keyClickSound defaults to false`() {
+        `when`(prefs.getBoolean(KeyboardPreferences.KEY_SOUND, false)).thenReturn(false)
+        assertFalse(preferences.keyClickSound)
+    }
+
+    @Test
     fun `enabledLanguageKeys defaults to English`() {
         `when`(prefs.getStringSet(KeyboardPreferences.KEY_LANGUAGES, null)).thenReturn(null)
         assertEquals(setOf("en_us"), preferences.enabledLanguageKeys)

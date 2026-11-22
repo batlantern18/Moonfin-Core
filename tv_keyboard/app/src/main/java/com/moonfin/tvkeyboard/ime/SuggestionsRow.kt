@@ -27,6 +27,7 @@ class SuggestionsRow @JvmOverloads constructor(
         fun onSuggestionSelected(suggestion: Suggestion, index: Int)
         fun onFocusLeft()
         fun onFocusRight()
+        fun onFocusDown()
     }
 
     var listener: Listener? = null
@@ -100,59 +101,67 @@ class SuggestionsRow @JvmOverloads constructor(
     }
 
     private fun rebuildChips() {
-        if (!suggestionsVisible || suggestions.isEmpty() || width <= 0) {
+        if (suggestions.isEmpty() || !suggestionsVisible) {
             chipRects = emptyList()
             return
         }
 
-        val textSize = (14 * density).coerceAtLeast(10f)
-        textPaint.textSize = textSize
-
+        val rects = mutableListOf<RectF>()
         var currentX = paddingLeft.toFloat()
-        chipRects = suggestions.map { suggestion ->
+        val y = paddingTop.toFloat()
+
+        textPaint.textSize = 14 * density
+
+        for (suggestion in suggestions) {
             val textWidth = textPaint.measureText(suggestion.text)
-            val chipWidth = textWidth + 2 * chipPadding
-            val rect = RectF(
-                currentX,
-                paddingTop.toFloat(),
-                currentX + chipWidth,
-                paddingTop.toFloat() + chipHeight
-            )
+            val chipWidth = textWidth + chipPadding * 2
+            val rect = RectF(currentX, y, currentX + chipWidth, y + chipHeight)
+            rects.add(rect)
             currentX += chipWidth + chipSpacing
-            rect
         }
+
+        chipRects = rects
     }
 
     override fun onDraw(canvas: Canvas) {
         super.onDraw(canvas)
-        if (!suggestionsVisible || chipRects.isEmpty()) return
+        if (!suggestionsVisible || suggestions.isEmpty() || chipRects.isEmpty()) return
 
-        chipRects.forEachIndexed { index, rect ->
-            val focused = index == focusedIndex
-            val pressed = index == pressedIndex
+        for (i in suggestions.indices) {
+            if (i >= chipRects.size) break
+            val rect = chipRects[i]
+            val isFocused = (i == focusedIndex) && hasFocus()
+            val isPressed = (i == pressedIndex)
 
             val background = when {
-                pressed -> palette.accent
-                focused -> palette.selectedKey
-                else -> palette.idleKey
+                isPressed -> palette.accent
+                isFocused -> palette.selectedKey
+                else -> palette.chipBackground
             }
+
             chipPaint.color = background
             canvas.drawRoundRect(rect, chipRadius, chipRadius, chipPaint)
 
-            if (focused) {
+            if (isFocused) {
                 borderPaint.color = palette.focusBorder.color
                 borderPaint.strokeWidth = palette.focusBorder.width * density
+                canvas.drawRoundRect(rect, chipRadius, chipRadius, borderPaint)
+            } else if (palette.chipBorder != null) {
+                borderPaint.color = palette.chipBorder!!.color
+                borderPaint.strokeWidth = palette.chipBorder!!.width * density
                 canvas.drawRoundRect(rect, chipRadius, chipRadius, borderPaint)
             }
 
             val textColor = when {
-                pressed -> palette.accentText
-                focused -> palette.textOnSelected
+                isPressed -> palette.accentText
+                isFocused -> palette.textOnSelected
                 else -> palette.textPrimary
             }
             textPaint.color = textColor
+            textPaint.textSize = 14 * density
+
             val baseline = rect.centerY() - (textPaint.descent() + textPaint.ascent()) / 2f
-            canvas.drawText(suggestions[index].text, rect.centerX(), baseline, textPaint)
+            canvas.drawText(suggestions[i].text, rect.centerX(), baseline, textPaint)
         }
     }
 
@@ -187,9 +196,10 @@ class SuggestionsRow @JvmOverloads constructor(
                 }
                 return true
             }
-            KeyEvent.KEYCODE_DPAD_DOWN -> {
-                // Return focus to keyboard
-                return false // Let parent handle
+            KeyEvent.KEYCODE_DPAD_DOWN,
+            KeyEvent.KEYCODE_BACK -> {
+                listener?.onFocusDown()
+                return true
             }
         }
         return super.onKeyDown(keyCode, event)
@@ -219,10 +229,8 @@ class SuggestionsRow @JvmOverloads constructor(
                 val pressed = pressedIndex
                 pressedIndex = -1
                 invalidate()
-                if (pressed >= 0 && released == pressed) {
-                    performClick()
-                    val suggestion = suggestions.getOrNull(pressed)
-                    suggestion?.let { listener?.onSuggestionSelected(it, pressed) }
+                if (pressed >= 0 && released == pressed && pressed < suggestions.size) {
+                    listener?.onSuggestionSelected(suggestions[pressed], pressed)
                 }
                 return true
             }
@@ -235,21 +243,19 @@ class SuggestionsRow @JvmOverloads constructor(
         return super.onTouchEvent(event)
     }
 
-    override fun performClick(): Boolean {
-        super.performClick()
-        return true
-    }
-
-    private fun hitTest(x: Float, y: Float): Int = chipRects.indexOfFirst { it.contains(x, y) }
-
     fun clear() {
         suggestions = emptyList()
+        focusedIndex = -1
+        chipRects = emptyList()
+        invalidate()
     }
 
-    fun setFocusedToLast() {
-        if (suggestions.isNotEmpty()) {
-            focusedIndex = suggestions.lastIndex
-            invalidate()
+    private fun hitTest(x: Float, y: Float): Int {
+        for (i in chipRects.indices) {
+            if (chipRects[i].contains(x, y)) {
+                return i
+            }
         }
+        return -1
     }
 }

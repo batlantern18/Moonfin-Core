@@ -48,6 +48,7 @@ class KeyboardRootView @JvmOverloads constructor(
             suggestionsRow.palette = value
             keyboardView.palette = value
             accentPopup.palette = value
+            clipboardOverlay.palette = value
             actionButton?.let { it.palette = value }
             invalidate()
         }
@@ -106,7 +107,7 @@ class KeyboardRootView @JvmOverloads constructor(
     private var accentShifted = false
     private var accentLocale = java.util.Locale.getDefault()
 
-    private val suggestionsRow = SuggestionsRow(context).apply {
+    val suggestionsRow = SuggestionsRow(context).apply {
         layoutParams = FrameLayout.LayoutParams(
             ViewGroup.LayoutParams.MATCH_PARENT,
             ViewGroup.LayoutParams.WRAP_CONTENT
@@ -114,16 +115,17 @@ class KeyboardRootView @JvmOverloads constructor(
         setPadding(16, 8, 16, 8)
     }
 
-    private val keyboardView = KeyboardView(context).apply {
+    val keyboardView = KeyboardView(context).apply {
         layoutParams = FrameLayout.LayoutParams(
             ViewGroup.LayoutParams.MATCH_PARENT,
             ViewGroup.LayoutParams.WRAP_CONTENT
         ).apply { gravity = android.view.Gravity.BOTTOM }
     }
 
-    private var actionButton: ActionButton? = null
+    var actionButton: ActionButton? = null
+        private set
 
-    private val accentPopup = AccentPopupView(context).apply {
+    val accentPopup = AccentPopupView(context).apply {
         layoutParams = FrameLayout.LayoutParams(
             ViewGroup.LayoutParams.MATCH_PARENT,
             ViewGroup.LayoutParams.WRAP_CONTENT,
@@ -131,7 +133,15 @@ class KeyboardRootView @JvmOverloads constructor(
         visibility = View.GONE
     }
 
-    private val languagePicker = LanguagePickerView(context).apply {
+    val languagePicker = LanguagePickerView(context).apply {
+        layoutParams = FrameLayout.LayoutParams(
+            ViewGroup.LayoutParams.MATCH_PARENT,
+            ViewGroup.LayoutParams.MATCH_PARENT,
+        )
+        visibility = View.GONE
+    }
+
+    val clipboardOverlay = ClipboardOverlayView(context).apply {
         layoutParams = FrameLayout.LayoutParams(
             ViewGroup.LayoutParams.MATCH_PARENT,
             ViewGroup.LayoutParams.MATCH_PARENT,
@@ -154,10 +164,14 @@ class KeyboardRootView @JvmOverloads constructor(
 
             override fun onFocusRight() {
                 // Right from last suggestion - move to action button
-                if (actionButton != null) {
+                if (actionButton != null && actionButton!!.visibility == View.VISIBLE) {
                     currentZone = FocusZone.ACTION
                     actionButton!!.requestFocus()
                 }
+            }
+
+            override fun onFocusDown() {
+                requestKeyboardFocus()
             }
         }
 
@@ -179,10 +193,40 @@ class KeyboardRootView @JvmOverloads constructor(
             }
         }
 
+        keyboardView.edgeListener = object : KeyboardView.EdgeListener {
+            override fun onEdgeUp() {
+                if (suggestionsEnabled && suggestionsRow.suggestions.isNotEmpty()) {
+                    requestSuggestionsFocus()
+                }
+            }
+
+            override fun onEdgeDown() {
+                if (actionButton != null && actionButton!!.visibility == View.VISIBLE) {
+                    currentZone = FocusZone.ACTION
+                    actionButton!!.requestFocus()
+                }
+            }
+
+            override fun onEdgeRight() {
+                if (actionButton != null && actionButton!!.visibility == View.VISIBLE) {
+                    currentZone = FocusZone.ACTION
+                    actionButton!!.requestFocus()
+                }
+            }
+
+            override fun onEdgeLeft() {}
+        }
+
         addView(suggestionsRow)
         addView(keyboardView)
         addView(accentPopup)
         addView(languagePicker)
+        addView(clipboardOverlay)
+
+        clipboardOverlay.onDismiss = {
+            clipboardOverlay.hide()
+            requestKeyboardFocus()
+        }
 
         accentPopup.onSelected = { key ->
             val text = AccentPopup.textFor(key, accentShifted, accentLocale)
@@ -192,8 +236,6 @@ class KeyboardRootView @JvmOverloads constructor(
             if (text != null) {
                 listener?.onAccentSelected(text)
             } else {
-                // Command keys in a popup (clipboard, voice) run the normal
-                // key pipeline instead of inserting their label.
                 listener?.onKey(key)
             }
         }
@@ -221,7 +263,6 @@ class KeyboardRootView @JvmOverloads constructor(
 
         val actionButtonHeight = resources.getDimensionPixelSize(R.dimen.action_button_height)
 
-        // Measure suggestions row first
         suggestionsRow.measure(widthMeasureSpec, MeasureSpec.makeMeasureSpec(0, MeasureSpec.UNSPECIFIED))
         val suggestionsHeight = if (suggestionsEnabled && suggestionsRow.suggestions.isNotEmpty()) {
             suggestionsRow.measuredHeight
@@ -229,7 +270,6 @@ class KeyboardRootView @JvmOverloads constructor(
             0
         }
 
-        // Measure keyboard view
         val keyboardWidthSpec = MeasureSpec.makeMeasureSpec(measuredWidth - paddingLeft - paddingRight, MeasureSpec.EXACTLY)
         val keyboardHeightSpec = MeasureSpec.makeMeasureSpec(
             MeasureSpec.getSize(heightMeasureSpec) - suggestionsHeight - actionButtonHeight - paddingTop - paddingBottom,
@@ -237,7 +277,6 @@ class KeyboardRootView @JvmOverloads constructor(
         )
         keyboardView.measure(keyboardWidthSpec, keyboardHeightSpec)
 
-        // Measure the accent popup so its wrapped height sits above the keyboard.
         if (accentPopup.isVisible) {
             accentPopup.measure(
                 MeasureSpec.makeMeasureSpec(
@@ -251,16 +290,22 @@ class KeyboardRootView @JvmOverloads constructor(
             )
         }
 
-        // Measure action button
-        if (actionButton != null) {
+        if (clipboardOverlay.isVisible) {
+            clipboardOverlay.measure(
+                MeasureSpec.makeMeasureSpec(measuredWidth - paddingLeft - paddingRight, MeasureSpec.EXACTLY),
+                MeasureSpec.makeMeasureSpec(MeasureSpec.getSize(heightMeasureSpec) - paddingTop - paddingBottom, MeasureSpec.AT_MOST)
+            )
+        }
+
+        if (actionButton != null && actionButton!!.visibility == View.VISIBLE) {
             actionButton!!.measure(
                 MeasureSpec.makeMeasureSpec(measuredWidth - paddingLeft - paddingRight, MeasureSpec.EXACTLY),
                 MeasureSpec.makeMeasureSpec(actionButtonHeight, MeasureSpec.EXACTLY)
             )
         }
 
-        val totalHeight = suggestionsHeight + keyboardView.measuredHeight +
-            (actionButton?.measuredHeight ?: 0) + paddingTop + paddingBottom
+        val actionHeight = if (actionButton != null && actionButton!!.visibility == View.VISIBLE) actionButton!!.measuredHeight else 0
+        val totalHeight = suggestionsHeight + keyboardView.measuredHeight + actionHeight + paddingTop + paddingBottom
 
         setMeasuredDimension(measuredWidth, resolveSize(totalHeight, heightMeasureSpec))
     }
@@ -269,7 +314,6 @@ class KeyboardRootView @JvmOverloads constructor(
         val contentWidth = right - left - paddingLeft - paddingRight
         var currentTop = paddingTop
 
-        // Layout suggestions row
         if (suggestionsEnabled && suggestionsRow.suggestions.isNotEmpty()) {
             suggestionsRow.layout(
                 paddingLeft, currentTop,
@@ -280,27 +324,26 @@ class KeyboardRootView @JvmOverloads constructor(
             suggestionsRow.layout(paddingLeft, currentTop, paddingLeft + contentWidth, currentTop)
         }
 
-        // Layout action button at bottom
-        if (actionButton != null) {
+        if (actionButton != null && actionButton!!.visibility == View.VISIBLE) {
             val actionHeight = actionButton!!.measuredHeight
             val actionTop = bottom - top - paddingBottom - actionHeight
             actionButton!!.layout(
                 paddingLeft, actionTop,
                 paddingLeft + contentWidth, actionTop + actionHeight
             )
-            currentTop = actionTop
         }
 
-        // Layout keyboard view in remaining space
         val keyboardTop = currentTop
-        val keyboardBottom = actionButton?.top ?: bottom - top - paddingBottom
+        val keyboardBottom = if (actionButton != null && actionButton!!.visibility == View.VISIBLE) {
+            actionButton!!.top
+        } else {
+            bottom - top - paddingBottom
+        }
         keyboardView.layout(
             paddingLeft, keyboardTop,
             paddingLeft + contentWidth, keyboardBottom
         )
 
-        // The mini keyboard floats directly above the main keyboard, clamped to
-        // the surface so it never draws off-screen.
         if (accentPopup.isVisible) {
             val popupHeight = accentPopup.measuredHeight
             val popupTop = (keyboardView.top - popupHeight).coerceAtLeast(paddingTop)
@@ -311,6 +354,18 @@ class KeyboardRootView @JvmOverloads constructor(
         } else {
             accentPopup.layout(paddingLeft, currentTop, paddingLeft, currentTop)
         }
+
+        if (languagePicker.isVisible) {
+            languagePicker.layout(paddingLeft, paddingTop, paddingLeft + contentWidth, bottom - top - paddingBottom)
+        } else {
+            languagePicker.layout(paddingLeft, paddingTop, paddingLeft, paddingTop)
+        }
+
+        if (clipboardOverlay.isVisible) {
+            clipboardOverlay.layout(paddingLeft, paddingTop, paddingLeft + contentWidth, bottom - top - paddingBottom)
+        } else {
+            clipboardOverlay.layout(paddingLeft, paddingTop, paddingLeft, paddingTop)
+        }
     }
 
     override fun onDraw(canvas: Canvas) {
@@ -318,7 +373,6 @@ class KeyboardRootView @JvmOverloads constructor(
         canvas.drawColor(palette.panel)
     }
 
-    /** Open the language picker overlay over the keyboard. */
     fun showLanguagePicker(languages: List<LanguageLayout>, currentIndex: Int, cyclic: Boolean, rtl: Boolean) {
         languagePicker.palette = palette
         this.rtl = rtl
@@ -335,11 +389,21 @@ class KeyboardRootView @JvmOverloads constructor(
 
     val isLanguagePickerVisible: Boolean get() = languagePicker.isVisible
 
-    /**
-     * Open the accent popup above the keyboard for the key's vendored popup
-     * layout. [shifted] and [locale] decide whether the chosen accent is
-     * uppercase; [rtl] mirrors the choices.
-     */
+    fun showClipboardOverlay(clips: List<ClipboardController.ClipItem>) {
+        clipboardOverlay.palette = palette
+        clipboardOverlay.show(clips)
+        requestLayout()
+    }
+
+    fun dismissClipboardOverlay() {
+        if (clipboardOverlay.isVisible) {
+            clipboardOverlay.hide()
+            requestKeyboardFocus()
+        }
+    }
+
+    val isClipboardOverlayVisible: Boolean get() = clipboardOverlay.isVisible
+
     fun showAccentPopup(resId: Int, shifted: Boolean, locale: java.util.Locale) {
         accentShifted = shifted
         accentLocale = locale
@@ -360,13 +424,6 @@ class KeyboardRootView @JvmOverloads constructor(
 
     val isAccentPopupVisible: Boolean get() = accentPopup.isVisible
 
-    /**
-     * Apply one [KeyboardState] to the whole surface. This is the single seam
-     * the service uses to render, so the view no longer reads the session or
-     * preferences directly. [keyboard] is the parsed layout for the state's
-     * [KeyboardState.SessionState.layoutResource]; it is an Android resource
-     * concern rather than typed state, so it is passed alongside the snapshot.
-     */
     fun apply(state: KeyboardState, keyboard: android.inputmethodservice.Keyboard?) {
         palette = state.palette
         cyclicNavigation = state.cyclic
@@ -375,6 +432,10 @@ class KeyboardRootView @JvmOverloads constructor(
         rtl = state.isRtl
         suggestionsEnabled = state.ui.suggestionsEnabled
         this.keyboard = keyboard
+        keyboardView.enlarge = state.ui.enlarge
+        keyboardView.voiceState = state.ui.voiceState
+        keyboardView.voiceError = state.ui.voiceError
+        keyboardView.spaceBarLanguageName = state.locale.displayLanguage
         setSuggestions(state.suggestions)
         if (state.actionLabel.isNotEmpty()) {
             showActionButton(state.actionLabel)
@@ -401,6 +462,21 @@ class KeyboardRootView @JvmOverloads constructor(
                     ViewGroup.LayoutParams.WRAP_CONTENT
                 ).apply { gravity = android.view.Gravity.BOTTOM }
                 setOnClickListener { listener?.onActionButton() }
+                setOnKeyListener { _, keyCode, event ->
+                    if (event.action == KeyEvent.ACTION_DOWN) {
+                        when (keyCode) {
+                            KeyEvent.KEYCODE_DPAD_UP, KeyEvent.KEYCODE_BACK -> {
+                                requestKeyboardFocus()
+                                return@setOnKeyListener true
+                            }
+                            KeyEvent.KEYCODE_DPAD_CENTER, KeyEvent.KEYCODE_ENTER, KeyEvent.KEYCODE_NUMPAD_ENTER -> {
+                                listener?.onActionButton()
+                                return@setOnKeyListener true
+                            }
+                        }
+                    }
+                    false
+                }
                 addView(this)
             }
         }
@@ -428,11 +504,12 @@ class KeyboardRootView @JvmOverloads constructor(
     }
 
     override fun onKeyDown(keyCode: Int, event: KeyEvent): Boolean {
-        // While the picker is open it owns every D-pad and Back key.
         if (languagePicker.isVisible) {
             return languagePicker.onKeyDown(keyCode, event)
         }
-        // Likewise the accent popup, even if it has not taken focus itself.
+        if (clipboardOverlay.isVisible) {
+            return clipboardOverlay.onKeyDown(keyCode, event)
+        }
         if (accentPopup.isVisible) {
             return accentPopup.onKeyDown(keyCode, event)
         }
@@ -440,14 +517,12 @@ class KeyboardRootView @JvmOverloads constructor(
             KeyEvent.KEYCODE_DPAD_UP -> {
                 when (currentZone) {
                     FocusZone.KEYBOARD -> {
-                        // Up from keyboard top row goes to suggestions
                         if (suggestionsEnabled && suggestionsRow.suggestions.isNotEmpty()) {
                             requestSuggestionsFocus()
                             return true
                         }
                     }
                     FocusZone.ACTION -> {
-                        // Up from action goes to keyboard
                         requestKeyboardFocus()
                         return true
                     }
@@ -457,12 +532,10 @@ class KeyboardRootView @JvmOverloads constructor(
             KeyEvent.KEYCODE_DPAD_DOWN -> {
                 when (currentZone) {
                     FocusZone.SUGGESTIONS -> {
-                        // Down from suggestions goes to keyboard
                         requestKeyboardFocus()
                         return true
                     }
                     FocusZone.KEYBOARD -> {
-                        // Down from keyboard bottom goes to action
                         if (actionButton != null && actionButton!!.visibility == View.VISIBLE) {
                             currentZone = FocusZone.ACTION
                             actionButton!!.requestFocus()
@@ -472,26 +545,10 @@ class KeyboardRootView @JvmOverloads constructor(
                     FocusZone.ACTION -> {}
                 }
             }
-            KeyEvent.KEYCODE_DPAD_LEFT -> {
-                when (currentZone) {
-                    FocusZone.ACTION -> {
-                        // Left from action goes to suggestions
-                        if (suggestionsEnabled && suggestionsRow.suggestions.isNotEmpty()) {
-                            requestSuggestionsFocus()
-                            suggestionsRow.setFocusedToLast()
-                            return true
-                        }
-                    }
-                    FocusZone.KEYBOARD, FocusZone.SUGGESTIONS -> {}
-                }
-            }
             KeyEvent.KEYCODE_DPAD_RIGHT -> {
                 when (currentZone) {
-                    FocusZone.SUGGESTIONS -> {
-                        // Right from last suggestion handled by SuggestionsRow
-                    }
+                    FocusZone.SUGGESTIONS -> {}
                     FocusZone.KEYBOARD -> {
-                        // Right from keyboard right edge goes to action
                         if (actionButton != null && actionButton!!.visibility == View.VISIBLE) {
                             currentZone = FocusZone.ACTION
                             actionButton!!.requestFocus()
@@ -502,7 +559,6 @@ class KeyboardRootView @JvmOverloads constructor(
                 }
             }
             KeyEvent.KEYCODE_BACK -> {
-                // Dismiss overlays, then hide IME
                 if (currentZone != FocusZone.KEYBOARD) {
                     requestKeyboardFocus()
                     return true
@@ -515,7 +571,6 @@ class KeyboardRootView @JvmOverloads constructor(
     override fun onFocusChanged(gainFocus: Boolean, direction: Int, previouslyFocusedRect: android.graphics.Rect?) {
         super.onFocusChanged(gainFocus, direction, previouslyFocusedRect)
         if (gainFocus) {
-            // Ensure we stay in the correct zone
             when (currentZone) {
                 FocusZone.SUGGESTIONS -> suggestionsRow.requestFocus()
                 FocusZone.ACTION -> actionButton?.requestFocus()
@@ -556,6 +611,7 @@ class ActionButton @JvmOverloads constructor(
 
     init {
         isFocusable = true
+        isFocusableInTouchMode = true
         isClickable = true
     }
 

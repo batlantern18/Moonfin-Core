@@ -58,6 +58,14 @@ class KeyboardPreferences(context: Context) {
         get() = prefs.getBoolean(KEY_AUTODETECT, false)
         set(value) = prefs.edit().putBoolean(KEY_AUTODETECT, value).apply()
 
+    var hapticFeedback: Boolean
+        get() = prefs.getBoolean(KEY_HAPTIC, true)
+        set(value) = prefs.edit().putBoolean(KEY_HAPTIC, value).apply()
+
+    var keyClickSound: Boolean
+        get() = prefs.getBoolean(KEY_SOUND, false)
+        set(value) = prefs.edit().putBoolean(KEY_SOUND, value).apply()
+
     /**
      * The last language the user picked inside the keyboard, so the selection
      * survives a reboot. Null until the user has chosen one; `initialLanguage`
@@ -74,6 +82,10 @@ class KeyboardPreferences(context: Context) {
             val clean = value.ifEmpty { setOf(DEFAULT_LANGUAGE) }
             prefs.edit().putStringSet(KEY_LANGUAGES, clean).apply()
         }
+
+    fun setEnabledLanguageKeys(keys: List<String>) {
+        enabledLanguageKeys = keys.toSet()
+    }
 
     fun enabledLanguages(): List<LanguageLayout> {
         val all = LanguageRegistry.all(appContext)
@@ -123,6 +135,8 @@ class KeyboardPreferences(context: Context) {
         const val KEY_VOICE = "voiceEnabled"
         const val KEY_AUTODETECT = "autodetectLanguage"
         const val KEY_SELECTED_LANGUAGE = "selectedLanguageKey"
+        const val KEY_HAPTIC = "haptic_feedback"
+        const val KEY_SOUND = "key_click_sound"
         const val DEFAULT_LANGUAGE = "en_us"
     }
 }
