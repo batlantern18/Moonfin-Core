@@ -3,14 +3,12 @@ package com.moonfin.tvkeyboard.ime
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
-import android.view.inputmethod.InputConnection
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
 import org.mockito.Mockito.mock
-import org.mockito.Mockito.verify
 import org.mockito.Mockito.`when`
 
 class ClipboardControllerTest {
@@ -120,28 +118,6 @@ class ClipboardControllerTest {
 
         `when`(clipboardManager.primaryClip).thenReturn(null)
         assertTrue(controller.snapshot().isEmpty())
-    }
-
-    @Test
-    fun `paste commits text to inputConnection without autospace`() {
-        val ic = mock(InputConnection::class.java)
-        controller.paste("Hello World", ic, autoSpace = false)
-
-        verify(ic).commitText("Hello World", 1)
-    }
-
-    @Test
-    fun `paste commits text and trailing space when autoSpace is true`() {
-        val ic = mock(InputConnection::class.java)
-        controller.paste("Hello", ic, autoSpace = true)
-
-        verify(ic).commitText("Hello", 1)
-        verify(ic).commitText(" ", 1)
-    }
-
-    @Test
-    fun `paste does not fail when inputConnection is null`() {
-        controller.paste("Hello", null, autoSpace = true)
     }
 
     @Test

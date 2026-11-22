@@ -24,6 +24,8 @@ class TvKeyboardService : InputMethodService(), KeyboardRootView.Listener, Keybo
     private var voiceInputController: VoiceInputController? = null
     private var clipboardController: ClipboardController? = null
     private var feedbackController: FeedbackController? = null
+    private lateinit var editor: InputConnectionEditor
+    private lateinit var renderCoalescer: RenderCoalescer
 
     private var currentVoiceState: VoiceState = VoiceState.IDLE
     private var currentVoiceError: String = ""
@@ -44,24 +46,39 @@ class TvKeyboardService : InputMethodService(), KeyboardRootView.Listener, Keybo
             preferences.keyClickSound,
         )
 
+        editor = InputConnectionEditor(
+            connection = { currentInputConnection },
+            autoSpace = { preferences.autoSpace },
+            onChanged = { requestRender() },
+        )
+        renderCoalescer = RenderCoalescer(
+            scheduler = { block ->
+                val view = rootView
+                if (view == null) {
+                    block()
+                } else {
+                    view.post(block)
+                }
+            },
+            render = { renderNow() },
+        )
+
         voiceInputController = VoiceInputController(this, { text ->
-            commit(text)
-            updateSuggestions()
+            editor.insert(text)
         }, { message ->
             currentVoiceState = VoiceState.ERROR
             currentVoiceError = message
-            syncView()
+            requestRender()
         }).also { controller ->
             controller.onStateChanged = { state, error ->
                 currentVoiceState = state
                 currentVoiceError = error
-                syncView()
+                requestRender()
             }
         }
 
         clipboardController = ClipboardController(this, { text ->
-            commit(text)
-            updateSuggestions()
+            editor.paste(text)
         }, { })
     }
 
@@ -95,15 +112,11 @@ class TvKeyboardService : InputMethodService(), KeyboardRootView.Listener, Keybo
             rootView?.dismissLanguagePicker()
         }
         view.clipboardOverlay.onPaste = { item ->
-            commit(item.text)
-            if (preferences.autoSpace) {
-                currentInputConnection?.commitText(" ", 1)
-            }
+            editor.paste(item.text)
             rootView?.requestKeyboardFocus()
-            updateSuggestions()
         }
         rootView = view
-        syncView()
+        renderNow()
         view.requestKeyboardFocus()
         return view
     }
@@ -111,14 +124,12 @@ class TvKeyboardService : InputMethodService(), KeyboardRootView.Listener, Keybo
     override fun onStartInput(attribute: EditorInfo?, restarting: Boolean) {
         super.onStartInput(attribute, restarting)
         session.beginInput(attribute, restarting)
-        syncView()
-        updateSuggestions()
+        requestRender()
     }
 
     override fun onStartInputView(info: EditorInfo?, restarting: Boolean) {
         super.onStartInputView(info, restarting)
-        syncView()
-        updateSuggestions()
+        requestRender()
     }
 
     override fun onFinishInputView(finishingInput: Boolean) {
@@ -146,16 +157,12 @@ class TvKeyboardService : InputMethodService(), KeyboardRootView.Listener, Keybo
         val keyCode = key.codes.firstOrNull() ?: return
         when (val command = ImeCommandResolver.resolve(keyCode, key.label, session.isShifted, session.locale)) {
             is ImeCommand.InsertText -> {
-                commit(command.text)
+                editor.insert(command.text)
                 session.consumeShift()
-                updateSuggestions()
             }
-            ImeCommand.DeleteBeforeCursor -> {
-                deleteBeforeCursor()
-                updateSuggestions()
-            }
-            ImeCommand.MoveLeft -> sendCursorKey(KeyEvent.KEYCODE_DPAD_LEFT)
-            ImeCommand.MoveRight -> sendCursorKey(KeyEvent.KEYCODE_DPAD_RIGHT)
+            ImeCommand.DeleteBeforeCursor -> editor.deleteBeforeCursor()
+            ImeCommand.MoveLeft -> editor.moveCursorLeft()
+            ImeCommand.MoveRight -> editor.moveCursorRight()
             ImeCommand.ToggleShift -> session.toggleShift()
             ImeCommand.LockShift -> session.lockShift()
             ImeCommand.ToggleMode -> session.toggleMode()
@@ -167,12 +174,12 @@ class TvKeyboardService : InputMethodService(), KeyboardRootView.Listener, Keybo
             ImeCommand.ClipboardOverlay -> showClipboardOverlay()
             ImeCommand.None -> Unit
         }
-        syncView()
+        requestRender()
     }
 
     override fun onLongPressShift() {
         session.lockShift()
-        syncView()
+        requestRender()
     }
 
     /** Long-press the language or space key: open the language picker. */
@@ -195,38 +202,28 @@ class TvKeyboardService : InputMethodService(), KeyboardRootView.Listener, Keybo
     /** A character was chosen in the popup; one-shot Shift is consumed. */
     override fun onAccentSelected(text: String) {
         rootView?.let { feedbackController?.onPopupSelection(it) }
-        commit(text)
+        editor.insert(text)
         session.consumeShift()
-        updateSuggestions()
+        requestRender()
     }
 
     /** A language was chosen in the picker overlay. */
     private fun onLanguageSelected(index: Int) {
         session.selectLanguage(index)
         preferences.selectedLanguageKey = session.languageKey
-        syncView()
+        requestRender()
     }
 
     override fun onActionButton() {
-        val connection = currentInputConnection ?: return
-        connection.performEditorAction(session.actionId)
+        editor.performAction(session.actionId)
     }
 
     override fun onSuggestionSelected(suggestion: Suggestion, index: Int) {
-        val connection = currentInputConnection ?: return
-        val replaceLength = suggestion.replacePrefix
-        if (replaceLength > 0) {
-            connection.deleteSurroundingText(replaceLength, 0)
-        }
-        connection.commitText(suggestion.text, 1)
-        if (preferences.autoSpace) {
-            connection.commitText(" ", 1)
-        }
+        editor.applySuggestion(suggestion)
         rootView?.requestKeyboardFocus()
-        clearSuggestions()
     }
 
-    private fun syncView() {
+    private fun renderNow() {
         val view = rootView ?: return
         val suggestions = if (preferences.suggestionsEnabled) currentSuggestions() else emptyList()
         val state = KeyboardState.from(
@@ -242,9 +239,7 @@ class TvKeyboardService : InputMethodService(), KeyboardRootView.Listener, Keybo
     }
 
     private fun currentSuggestions(): List<Suggestion> {
-        val connection = currentInputConnection ?: return emptyList()
-        val textBeforeCursor =
-            connection.getTextBeforeCursor(SuggestionEngine.MAX_PREFIX_LOOKBEHIND, 0)?.toString() ?: ""
+        val textBeforeCursor = editor.textBeforeCursor(SuggestionEngine.MAX_PREFIX_LOOKBEHIND)
         val mode = suggestionEngine.modeFor(session.inputType)
         return suggestionEngine.suggestions(
             textBeforeCursor = textBeforeCursor,
@@ -258,35 +253,8 @@ class TvKeyboardService : InputMethodService(), KeyboardRootView.Listener, Keybo
         view.setBackgroundColor(session.palette.panel)
     }
 
-    private fun updateSuggestions() = syncView()
-
-    private fun clearSuggestions() {
-        rootView?.clearSuggestions()
-    }
-
-    private fun commit(text: String) {
-        updateSuggestions()
-        currentInputConnection?.commitText(text, 1)
-    }
-
-    private fun deleteBeforeCursor() {
-        updateSuggestions()
-        val connection = currentInputConnection ?: return
-        val selection = connection.getSelectedText(0)
-        if (!selection.isNullOrEmpty()) {
-            connection.commitText("", 1)
-            return
-        }
-        if (!connection.deleteSurroundingText(1, 0)) {
-            connection.sendKeyEvent(KeyEvent(KeyEvent.ACTION_DOWN, KeyEvent.KEYCODE_DEL))
-            connection.sendKeyEvent(KeyEvent(KeyEvent.ACTION_UP, KeyEvent.KEYCODE_DEL))
-        }
-    }
-
-    private fun sendCursorKey(keyCode: Int) {
-        val connection = currentInputConnection ?: return
-        connection.sendKeyEvent(KeyEvent(KeyEvent.ACTION_DOWN, keyCode))
-        connection.sendKeyEvent(KeyEvent(KeyEvent.ACTION_UP, keyCode))
+    private fun requestRender() {
+        renderCoalescer.request()
     }
 
     private fun startVoiceInput() {

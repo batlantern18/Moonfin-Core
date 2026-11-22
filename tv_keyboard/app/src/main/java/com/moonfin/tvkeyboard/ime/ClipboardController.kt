@@ -2,7 +2,6 @@ package com.moonfin.tvkeyboard.ime
 
 import android.content.ClipboardManager
 import android.content.Context
-import android.view.inputmethod.InputConnection
 
 /**
  * Manages clipboard operations for the TV keyboard.
@@ -40,14 +39,6 @@ class ClipboardController(
     fun clear() { history.clear() }
 
     fun getRecentClips(limit: Int = MAX_CLIPS): List<ClipItem> = snapshot().take(limit)
-
-    fun paste(text: String, inputConnection: InputConnection?, autoSpace: Boolean = false) {
-        if (inputConnection == null) return
-        inputConnection.commitText(text, 1)
-        if (autoSpace) {
-            inputConnection.commitText(" ", 1)
-        }
-    }
 
     data class ClipItem(val text: String)
 }
