@@ -3,6 +3,7 @@ import com.moonfin.tvkeyboard.BuildConfig
 
 import android.Manifest
 import android.app.Activity
+import android.app.AlertDialog
 import android.content.ActivityNotFoundException
 import android.content.ComponentName
 import android.content.Context
@@ -32,6 +33,7 @@ import android.widget.ScrollView
 import android.widget.TextView
 import android.widget.Toast
 import com.moonfin.tvkeyboard.R
+import com.moonfin.tvkeyboard.ime.KeyboardList
 import com.moonfin.tvkeyboard.ime.LanguageLayout
 import com.moonfin.tvkeyboard.ime.LanguageRegistry
 import com.moonfin.tvkeyboard.ime.TvKeyboardService
@@ -71,6 +73,7 @@ class MainActivity : Activity() {
     private var styleSection: View? = null
     private var optionsSection: View? = null
     private var aboutSection: View? = null
+    private var keyboardsStatusView: TextView? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -99,6 +102,7 @@ class MainActivity : Activity() {
     override fun onResume() {
         super.onResume()
         refreshActivationStatus()
+        refreshKeyboards()
         updatePreview()
         (lastFocusedView ?: findFirstFocusable(contentLayout))?.requestFocus()
     }
@@ -120,11 +124,13 @@ class MainActivity : Activity() {
         contentLayout.addView(buildHeader())
         contentLayout.addView(buildPreviewSection())
         contentLayout.addView(buildActivationSection())
+        contentLayout.addView(buildManageKeyboardsSection())
         contentLayout.addView(buildLayoutSection())
         contentLayout.addView(buildThemeSection())
         contentLayout.addView(buildStyleSection())
         contentLayout.addView(buildOptionsSection())
         contentLayout.addView(buildResetSection())
+        contentLayout.addView(buildLegalSection())
         contentLayout.addView(buildAboutSection())
     }
 
@@ -213,6 +219,122 @@ class MainActivity : Activity() {
         val enabledLine = getString(if (enabled) R.string.activation_enabled else R.string.activation_disabled)
         val selectedLine = getString(if (selected) R.string.activation_selected else R.string.activation_not_selected)
         statusView.text = "$enabledLine\n$selectedLine"
+    }
+
+    private fun buildManageKeyboardsSection(): LinearLayout {
+        val section = buildSectionContainer(R.string.section_keyboards)
+
+        val hint = TextView(this).apply {
+            text = getString(R.string.keyboards_hint)
+            textSize = 16f
+            setTextColor(Color.parseColor("#99FFFFFF"))
+            setLineSpacing(dp(4).toFloat(), 1f)
+            setPadding(0, 0, 0, dp(16))
+        }
+        section.addView(hint, lpMatchWidth(0))
+
+        val card = buildCard()
+        val list = TextView(this).apply {
+            id = View.generateViewId()
+            textSize = 18f
+            setTextColor(color(R.color.moonfin_on_surface))
+            setLineSpacing(dp(6).toFloat(), 1f)
+            setPadding(dp(24), dp(20), dp(24), dp(20))
+        }
+        card.addView(list)
+        keyboardsStatusView = list
+        section.addView(card, lpMatchWidth(dp(16)))
+
+        section.addView(
+            actionButton(getString(R.string.action_keyboard_settings)) { openInputMethodSettings() },
+            lpMatchWidth(dp(16)),
+        )
+
+        refreshKeyboards()
+        return section
+    }
+
+    private fun refreshKeyboards() {
+        val view = keyboardsStatusView ?: return
+        val activeId = Settings.Secure.getString(contentResolver, Settings.Secure.DEFAULT_INPUT_METHOD)
+        val entries = inputMethodManager.inputMethodList.map { info ->
+            val component = ComponentName(info.packageName, info.serviceName)
+            KeyboardList.Entry(
+                id = component.flattenToShortString(),
+                label = runCatching { info.loadLabel(packageManager).toString() }
+                    .getOrDefault(info.packageName),
+                active = activeId == component.flattenToShortString() ||
+                    activeId == component.flattenToString(),
+            )
+        }
+        view.text = KeyboardList.format(
+            entries = entries,
+            activeMarker = getString(R.string.keyboards_active),
+            emptyText = getString(R.string.keyboards_empty),
+        )
+    }
+
+    private fun buildLegalSection(): LinearLayout {
+        val section = buildSectionContainer(R.string.section_legal)
+        section.addView(
+            buildLinkRow(R.string.legal_terms, R.string.legal_terms_text),
+            lpMatchWidth(dp(4)),
+        )
+        section.addView(
+            buildLinkRow(R.string.legal_privacy, R.string.legal_privacy_text),
+            lpMatchWidth(dp(4)),
+        )
+        section.addView(
+            buildLinkRow(R.string.legal_licenses, R.string.legal_licenses_text),
+            lpMatchWidth(dp(4)),
+        )
+        return section
+    }
+
+    private fun buildLinkRow(titleRes: Int, messageRes: Int): LinearLayout {
+        val row = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+            isFocusable = true
+            isFocusableInTouchMode = true
+            setPadding(dp(16), dp(14), dp(16), dp(14))
+            background = buildFocusableBackground()
+            setOnClickListener { showInfoDialog(titleRes, messageRes) }
+            setOnKeyListener { _, keyCode, event ->
+                if (event.action == KeyEvent.ACTION_DOWN &&
+                    (keyCode == KeyEvent.KEYCODE_DPAD_CENTER ||
+                        keyCode == KeyEvent.KEYCODE_ENTER ||
+                        keyCode == KeyEvent.KEYCODE_NUMPAD_ENTER)
+                ) {
+                    showInfoDialog(titleRes, messageRes)
+                    true
+                } else {
+                    false
+                }
+            }
+        }
+        row.addView(
+            TextView(this).apply {
+                text = getString(titleRes)
+                textSize = 20f
+                setTextColor(color(R.color.moonfin_on_surface))
+            },
+            LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f),
+        )
+        row.addView(TextView(this).apply {
+            text = "\u203A"
+            textSize = 22f
+            setTextColor(Color.parseColor("#99FFFFFF"))
+        })
+        return row
+    }
+
+    private fun showInfoDialog(titleRes: Int, messageRes: Int) {
+        AlertDialog.Builder(this)
+            .setTitle(titleRes)
+            .setMessage(messageRes)
+            .setPositiveButton(R.string.legal_close, null)
+            .show()
     }
 
     private fun buildLayoutSection(): LinearLayout {

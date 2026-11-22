@@ -19,11 +19,26 @@
 
     <!-- Settings sections -->
     <string name="section_activation">Activation</string>
+    <string name="section_keyboards">Manage keyboards</string>
+    <string name="keyboards_hint">Keyboards installed on this device. The one in use is marked.</string>
+    <string name="keyboards_empty">No keyboards are installed.</string>
+    <string name="keyboards_active">active</string>
+    <string name="action_keyboard_settings">System keyboard settings</string>
+
     <string name="section_layout">Layout</string>
     <string name="section_theme">Theme</string>
     <string name="section_style">Keyboard style</string>
     <string name="section_options">Options</string>
     <string name="section_about">About</string>
+
+    <string name="section_legal">Legal</string>
+    <string name="legal_terms">Terms of service</string>
+    <string name="legal_privacy">Privacy policy</string>
+    <string name="legal_licenses">Open source licenses</string>
+    <string name="legal_close">Close</string>
+    <string name="legal_terms_text">Moonfin TV Keyboard is an independent recreation of a television keyboard interface and is not affiliated with or endorsed by Google. It is provided as is, without warranty of any kind.</string>
+    <string name="legal_privacy_text">Everything you type stays on this device. The keyboard does not request network access, does not collect usage data, and does not transmit what you type. The microphone is used only while voice input is running, and the recognised words go into the field you were already typing in.</string>
+    <string name="legal_licenses_text">Language layouts are derived from LeanKeyboard by Yurii L (MIT License). The full notice is in the NOTICE file at the root of the project repository.</string>
 
     <string name="activation_enabled">Keyboard is enabled</string>
     <string name="activation_disabled">Keyboard is not enabled</string>
