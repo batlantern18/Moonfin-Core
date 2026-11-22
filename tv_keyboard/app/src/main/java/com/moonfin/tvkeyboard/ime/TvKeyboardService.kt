@@ -9,8 +9,10 @@ import android.content.res.Configuration
 import android.provider.Settings
 import android.inputmethodservice.InputMethodService
 import android.text.InputType
+import android.view.Gravity
 import android.view.KeyEvent
 import android.view.View
+import android.view.WindowManager
 import android.view.inputmethod.EditorInfo
 import android.view.inputmethod.InputMethodManager
 import android.widget.Toast
@@ -35,6 +37,7 @@ class TvKeyboardService : InputMethodService(), KeyboardRootView.Listener, Keybo
 
     private var currentVoiceState: VoiceState = VoiceState.IDLE
     private var currentVoiceError: String = ""
+    private var placement = WindowPlacement()
 
     override fun onCreate() {
         super.onCreate()
@@ -131,6 +134,7 @@ class TvKeyboardService : InputMethodService(), KeyboardRootView.Listener, Keybo
 
     override fun onStartInputView(info: EditorInfo?, restarting: Boolean) {
         super.onStartInputView(info, restarting)
+        applyWindowPlacement(info)
         requestRender()
     }
 
@@ -212,6 +216,25 @@ class TvKeyboardService : InputMethodService(), KeyboardRootView.Listener, Keybo
         true
     } catch (_: ActivityNotFoundException) {
         false
+    }
+
+    /**
+     * Shrinks the input window to its compact width and puts it where the host
+     * asked. Done on every input start because `privateImeOptions` belongs to
+     * the field, not to the service.
+     */
+    private fun applyWindowPlacement(info: EditorInfo?) {
+        placement = WindowPlacement.parse(info?.privateImeOptions)
+        val inputWindow = window?.window ?: return
+        val width = WindowPlacement.widthPx(resources.displayMetrics.widthPixels, placement.widthFraction)
+        inputWindow.setLayout(width, WindowManager.LayoutParams.WRAP_CONTENT)
+        inputWindow.setGravity(
+            Gravity.BOTTOM or when (placement.alignment) {
+                HorizontalAlignment.LEFT -> Gravity.START
+                HorizontalAlignment.CENTER -> Gravity.CENTER_HORIZONTAL
+                HorizontalAlignment.RIGHT -> Gravity.END
+            },
+        )
     }
 
     /** A key with a vendored popup layout was held: open its mini keyboard. */
