@@ -15,16 +15,18 @@ import com.moonfin.tvkeyboard.theme.ThemeCatalog
 import com.moonfin.tvkeyboard.theme.VisualTheme
 
 /**
- * Horizontal chip row for suggestions. Navigable with D-pad left/right.
- * Center/Enter selects the focused suggestion. Down returns focus to keyboard.
+ * The strip above the keys: one module with four contents — word suggestions,
+ * email domains, the digit and symbol row for password fields, and the voice
+ * plate. Which one is shown comes from [TopBarContent]; this view never decides
+ * it. Navigable with the D-pad left/right; Down or Back returns to the keys.
  */
-class SuggestionsRow @JvmOverloads constructor(
+class TopBarView @JvmOverloads constructor(
     context: Context,
     attrs: AttributeSet? = null,
 ) : View(context, attrs) {
 
     interface Listener {
-        fun onSuggestionSelected(suggestion: Suggestion, index: Int)
+        fun onItemSelected(item: Suggestion, index: Int)
         fun onFocusLeft()
         fun onFocusRight()
         fun onFocusDown()
@@ -38,19 +40,18 @@ class SuggestionsRow @JvmOverloads constructor(
             invalidate()
         }
 
-    var suggestions: List<Suggestion> = emptyList()
+    var content: TopBarContent = TopBarContent.EMPTY
         set(value) {
+            if (field == value) return
             field = value
-            focusedIndex = if (value.isEmpty()) -1 else 0
+            focusedIndex = if (value.items.isEmpty()) -1 else 0
+            chipRects = emptyList()
+            contentDescription = if (value.kind == TopBarKind.VOICE) voiceLabel(value) else null
+            requestLayout()
             invalidate()
         }
 
-    var suggestionsVisible: Boolean = true
-        set(value) {
-            field = value
-            if (!value) focusedIndex = -1
-            invalidate()
-        }
+    private val items: List<Suggestion> get() = content.items
 
     private val density: Float get() = resources.displayMetrics.density
 
@@ -87,7 +88,8 @@ class SuggestionsRow @JvmOverloads constructor(
             MeasureSpec.getSize(widthMeasureSpec)
         }
 
-        val desiredHeight = if (suggestionsVisible && suggestions.isNotEmpty()) {
+        // Nothing to show collapses the strip, so the keys take the space back.
+        val desiredHeight = if (content.visible) {
             chipHeight.toInt() + paddingTop + paddingBottom
         } else {
             0
@@ -101,7 +103,7 @@ class SuggestionsRow @JvmOverloads constructor(
     }
 
     private fun rebuildChips() {
-        if (suggestions.isEmpty() || !suggestionsVisible) {
+        if (content.kind == TopBarKind.VOICE || items.isEmpty()) {
             chipRects = emptyList()
             return
         }
@@ -112,11 +114,10 @@ class SuggestionsRow @JvmOverloads constructor(
 
         textPaint.textSize = 14 * density
 
-        for (suggestion in suggestions) {
-            val textWidth = textPaint.measureText(suggestion.text)
+        for (item in items) {
+            val textWidth = textPaint.measureText(item.text)
             val chipWidth = textWidth + chipPadding * 2
-            val rect = RectF(currentX, y, currentX + chipWidth, y + chipHeight)
-            rects.add(rect)
+            rects.add(RectF(currentX, y, currentX + chipWidth, y + chipHeight))
             currentX += chipWidth + chipSpacing
         }
 
@@ -125,21 +126,24 @@ class SuggestionsRow @JvmOverloads constructor(
 
     override fun onDraw(canvas: Canvas) {
         super.onDraw(canvas)
-        if (!suggestionsVisible || suggestions.isEmpty() || chipRects.isEmpty()) return
+        if (!content.visible) return
+        if (content.kind == TopBarKind.VOICE) {
+            drawVoicePlate(canvas)
+            return
+        }
+        if (chipRects.isEmpty()) return
 
-        for (i in suggestions.indices) {
+        for (i in items.indices) {
             if (i >= chipRects.size) break
             val rect = chipRects[i]
             val isFocused = (i == focusedIndex) && hasFocus()
             val isPressed = (i == pressedIndex)
 
-            val background = when {
+            chipPaint.color = when {
                 isPressed -> palette.accent
                 isFocused -> palette.selectedKey
                 else -> palette.chipBackground
             }
-
-            chipPaint.color = background
             canvas.drawRoundRect(rect, chipRadius, chipRadius, chipPaint)
 
             if (isFocused) {
@@ -152,17 +156,42 @@ class SuggestionsRow @JvmOverloads constructor(
                 canvas.drawRoundRect(rect, chipRadius, chipRadius, borderPaint)
             }
 
-            val textColor = when {
+            textPaint.color = when {
                 isPressed -> palette.accentText
                 isFocused -> palette.textOnSelected
                 else -> palette.textPrimary
             }
-            textPaint.color = textColor
             textPaint.textSize = 14 * density
 
             val baseline = rect.centerY() - (textPaint.descent() + textPaint.ascent()) / 2f
-            canvas.drawText(suggestions[i].text, rect.centerX(), baseline, textPaint)
+            canvas.drawText(items[i].text, rect.centerX(), baseline, textPaint)
         }
+    }
+
+    /** The listening and error states take the whole strip, not a key's canvas. */
+    private fun drawVoicePlate(canvas: Canvas) {
+        val rect = RectF(
+            paddingLeft.toFloat(),
+            paddingTop.toFloat(),
+            (width - paddingRight).toFloat(),
+            paddingTop + chipHeight,
+        )
+        val listening = content.voiceState == VoiceState.LISTENING
+        chipPaint.color = if (listening) palette.accent else ERROR_PLATE
+        canvas.drawRoundRect(rect, chipRadius, chipRadius, chipPaint)
+
+        textPaint.color = if (listening) palette.accentText else 0xFFFFFFFF.toInt()
+        textPaint.textSize = 14 * density
+        val label = voiceLabel(content)
+        val baseline = rect.centerY() - (textPaint.descent() + textPaint.ascent()) / 2f
+        canvas.drawText(label, rect.centerX(), baseline, textPaint)
+    }
+
+    private fun voiceLabel(content: TopBarContent): String = when (content.voiceState) {
+        VoiceState.LISTENING -> context.getString(R.string.voice_listening)
+        VoiceState.ERROR ->
+            "⚠ " + content.voiceError.ifEmpty { context.getString(R.string.voice_unavailable) }
+        VoiceState.IDLE -> ""
     }
 
     override fun onKeyDown(keyCode: Int, event: KeyEvent): Boolean {
@@ -178,7 +207,7 @@ class SuggestionsRow @JvmOverloads constructor(
                 return true
             }
             KeyEvent.KEYCODE_DPAD_RIGHT -> {
-                if (focusedIndex < suggestions.lastIndex) {
+                if (focusedIndex < items.lastIndex) {
                     focusedIndex++
                     pressedIndex = -1
                     invalidate()
@@ -190,9 +219,8 @@ class SuggestionsRow @JvmOverloads constructor(
             KeyEvent.KEYCODE_DPAD_CENTER,
             KeyEvent.KEYCODE_ENTER,
             KeyEvent.KEYCODE_NUMPAD_ENTER -> {
-                if (focusedIndex >= 0 && focusedIndex < suggestions.size) {
-                    val suggestion = suggestions[focusedIndex]
-                    listener?.onSuggestionSelected(suggestion, focusedIndex)
+                if (focusedIndex >= 0 && focusedIndex < items.size) {
+                    listener?.onItemSelected(items[focusedIndex], focusedIndex)
                 }
                 return true
             }
@@ -229,8 +257,8 @@ class SuggestionsRow @JvmOverloads constructor(
                 val pressed = pressedIndex
                 pressedIndex = -1
                 invalidate()
-                if (pressed >= 0 && released == pressed && pressed < suggestions.size) {
-                    listener?.onSuggestionSelected(suggestions[pressed], pressed)
+                if (pressed >= 0 && released == pressed && pressed < items.size) {
+                    listener?.onItemSelected(items[pressed], pressed)
                 }
                 return true
             }
@@ -244,18 +272,19 @@ class SuggestionsRow @JvmOverloads constructor(
     }
 
     fun clear() {
-        suggestions = emptyList()
-        focusedIndex = -1
+        content = TopBarContent.EMPTY
         chipRects = emptyList()
         invalidate()
     }
 
     private fun hitTest(x: Float, y: Float): Int {
         for (i in chipRects.indices) {
-            if (chipRects[i].contains(x, y)) {
-                return i
-            }
+            if (chipRects[i].contains(x, y)) return i
         }
         return -1
+    }
+
+    private companion object {
+        const val ERROR_PLATE = 0xFFB00020.toInt()
     }
 }

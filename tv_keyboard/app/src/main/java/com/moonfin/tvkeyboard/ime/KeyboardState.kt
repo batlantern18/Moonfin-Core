@@ -38,6 +38,16 @@ data class KeyboardState(
     val fieldMode: FieldMode get() = ui.fieldMode
     val voiceAvailable: Boolean get() = ui.fieldMode.allowsVoice
 
+    /** What the strip above the keys shows, decided here and not in the view. */
+    val topBar: TopBarContent
+        get() = TopBarContent.of(
+            fieldMode = ui.fieldMode,
+            voiceState = ui.voiceState,
+            voiceError = ui.voiceError,
+            suggestions = ui.suggestions,
+            suggestionsEnabled = ui.suggestionsEnabled,
+        )
+
     /** Per-input-connection state: what is being typed and how. */
     data class SessionState(
         val mode: KeyboardSession.Mode,

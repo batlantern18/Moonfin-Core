@@ -88,20 +88,6 @@ class KeyboardView @JvmOverloads constructor(
             requestLayout()
         }
 
-    var voiceState: VoiceState = VoiceState.IDLE
-        set(value) {
-            if (field == value) return
-            field = value
-            invalidate()
-        }
-
-    var voiceError: String = ""
-        set(value) {
-            if (field == value) return
-            field = value
-            invalidate()
-        }
-
     /** False in fields where dictation is not allowed; the voice key goes inert. */
     var voiceAvailable: Boolean = true
         set(value) {
@@ -273,29 +259,6 @@ class KeyboardView @JvmOverloads constructor(
             drawKey(canvas, key, rect, radius, focused = index == focusedIndex, pressed = index == pressedIndex)
         }
 
-        // Inline voice status banner
-        if (voiceState != VoiceState.IDLE) {
-            val bannerHeight = 28 * density
-            val bannerRect = RectF(
-                paddingLeft.toFloat() + 8 * density,
-                paddingTop.toFloat() + 4 * density,
-                (width - paddingRight).toFloat() - 8 * density,
-                paddingTop.toFloat() + 4 * density + bannerHeight
-            )
-            keyPaint.style = Paint.Style.FILL
-            keyPaint.color = if (voiceState == VoiceState.LISTENING) palette.accent else 0xFFB00020.toInt()
-            canvas.drawRoundRect(bannerRect, 6 * density, 6 * density, keyPaint)
-
-            textPaint.color = if (voiceState == VoiceState.LISTENING) palette.accentText else 0xFFFFFFFF.toInt()
-            textPaint.textSize = 14 * density
-            val bannerText = if (voiceState == VoiceState.LISTENING) {
-                "🎤 Listening…"
-            } else {
-                "⚠ " + voiceError.ifEmpty { "Voice input error" }
-            }
-            val textBaseline = bannerRect.centerY() - (textPaint.descent() + textPaint.ascent()) / 2f
-            canvas.drawText(bannerText, bannerRect.centerX(), textBaseline, textPaint)
-        }
     }
 
     private fun drawKey(

@@ -39,22 +39,12 @@ class KeyboardRootView @JvmOverloads constructor(
     var palette: KeyboardPalette = ThemeCatalog.palette(VisualTheme.MOONFIN, KeyboardStyle.DOCKED)
         set(value) {
             field = value
-            suggestionsRow.palette = value
+            topBar.palette = value
             keyboardView.palette = value
             accentPopup.palette = value
             clipboardOverlay.palette = value
             actionButton?.let { it.palette = value }
             invalidate()
-        }
-
-    var suggestionsEnabled: Boolean = true
-        set(value) {
-            field = value
-            suggestionsRow.suggestionsVisible = value
-            if (!value) {
-                suggestionsRow.clear()
-            }
-            requestLayout()
         }
 
     var cyclicNavigation: Boolean = false
@@ -92,7 +82,7 @@ class KeyboardRootView @JvmOverloads constructor(
             keyboardView.keyboard = value
         }
 
-    private enum class FocusZone { SUGGESTIONS, ACTION, KEYBOARD }
+    private enum class FocusZone { TOP_BAR, ACTION, KEYBOARD }
 
     private var currentZone = FocusZone.KEYBOARD
 
@@ -100,7 +90,7 @@ class KeyboardRootView @JvmOverloads constructor(
     private var accentShifted = false
     private var accentLocale = java.util.Locale.getDefault()
 
-    val suggestionsRow = SuggestionsRow(context).apply {
+    val topBar = TopBarView(context).apply {
         layoutParams = FrameLayout.LayoutParams(
             ViewGroup.LayoutParams.MATCH_PARENT,
             ViewGroup.LayoutParams.WRAP_CONTENT
@@ -138,17 +128,17 @@ class KeyboardRootView @JvmOverloads constructor(
         isFocusable = true
         isFocusableInTouchMode = true
 
-        suggestionsRow.listener = object : SuggestionsRow.Listener {
-            override fun onSuggestionSelected(suggestion: Suggestion, index: Int) {
-                listener?.onSuggestionSelected(suggestion, index)
+        topBar.listener = object : TopBarView.Listener {
+            override fun onItemSelected(item: Suggestion, index: Int) {
+                listener?.onSuggestionSelected(item, index)
             }
 
             override fun onFocusLeft() {
-                // Left from first suggestion - stay in suggestions
+                // Left from the first chip stays on the strip.
             }
 
             override fun onFocusRight() {
-                // Right from last suggestion - move to action button
+                // Right from the last chip moves to the action button.
                 if (actionButton != null && actionButton!!.visibility == View.VISIBLE) {
                     currentZone = FocusZone.ACTION
                     actionButton!!.requestFocus()
@@ -184,9 +174,7 @@ class KeyboardRootView @JvmOverloads constructor(
 
         keyboardView.edgeListener = object : KeyboardView.EdgeListener {
             override fun onEdgeUp() {
-                if (suggestionsEnabled && suggestionsRow.suggestions.isNotEmpty()) {
-                    requestSuggestionsFocus()
-                }
+                if (topBar.content.visible) requestTopBarFocus()
             }
 
             override fun onEdgeDown() {
@@ -206,7 +194,7 @@ class KeyboardRootView @JvmOverloads constructor(
             override fun onEdgeLeft() {}
         }
 
-        addView(suggestionsRow)
+        addView(topBar)
         addView(keyboardView)
         addView(accentPopup)
         addView(clipboardOverlay)
@@ -245,16 +233,12 @@ class KeyboardRootView @JvmOverloads constructor(
 
         val actionButtonHeight = resources.getDimensionPixelSize(R.dimen.action_button_height)
 
-        suggestionsRow.measure(widthMeasureSpec, MeasureSpec.makeMeasureSpec(0, MeasureSpec.UNSPECIFIED))
-        val suggestionsHeight = if (suggestionsEnabled && suggestionsRow.suggestions.isNotEmpty()) {
-            suggestionsRow.measuredHeight
-        } else {
-            0
-        }
+        topBar.measure(widthMeasureSpec, MeasureSpec.makeMeasureSpec(0, MeasureSpec.UNSPECIFIED))
+        val topBarHeight = if (topBar.content.visible) topBar.measuredHeight else 0
 
         val keyboardWidthSpec = MeasureSpec.makeMeasureSpec(measuredWidth - paddingLeft - paddingRight, MeasureSpec.EXACTLY)
         val keyboardHeightSpec = MeasureSpec.makeMeasureSpec(
-            MeasureSpec.getSize(heightMeasureSpec) - suggestionsHeight - actionButtonHeight - paddingTop - paddingBottom,
+            MeasureSpec.getSize(heightMeasureSpec) - topBarHeight - actionButtonHeight - paddingTop - paddingBottom,
             MeasureSpec.AT_MOST
         )
         keyboardView.measure(keyboardWidthSpec, keyboardHeightSpec)
@@ -287,7 +271,7 @@ class KeyboardRootView @JvmOverloads constructor(
         }
 
         val actionHeight = if (actionButton != null && actionButton!!.visibility == View.VISIBLE) actionButton!!.measuredHeight else 0
-        val totalHeight = suggestionsHeight + keyboardView.measuredHeight + actionHeight + paddingTop + paddingBottom
+        val totalHeight = topBarHeight + keyboardView.measuredHeight + actionHeight + paddingTop + paddingBottom
 
         setMeasuredDimension(measuredWidth, resolveSize(totalHeight, heightMeasureSpec))
     }
@@ -296,14 +280,14 @@ class KeyboardRootView @JvmOverloads constructor(
         val contentWidth = right - left - paddingLeft - paddingRight
         var currentTop = paddingTop
 
-        if (suggestionsEnabled && suggestionsRow.suggestions.isNotEmpty()) {
-            suggestionsRow.layout(
+        if (topBar.content.visible) {
+            topBar.layout(
                 paddingLeft, currentTop,
-                paddingLeft + contentWidth, currentTop + suggestionsRow.measuredHeight
+                paddingLeft + contentWidth, currentTop + topBar.measuredHeight
             )
-            currentTop += suggestionsRow.measuredHeight
+            currentTop += topBar.measuredHeight
         } else {
-            suggestionsRow.layout(paddingLeft, currentTop, paddingLeft + contentWidth, currentTop)
+            topBar.layout(paddingLeft, currentTop, paddingLeft + contentWidth, currentTop)
         }
 
         if (actionButton != null && actionButton!!.visibility == View.VISIBLE) {
@@ -393,29 +377,16 @@ class KeyboardRootView @JvmOverloads constructor(
         locale = state.locale
         shifted = state.isShifted
         rtl = state.isRtl
-        suggestionsEnabled = state.ui.suggestionsEnabled
         this.keyboard = keyboard
         keyboardView.enlarge = state.ui.enlarge
-        keyboardView.voiceState = state.ui.voiceState
-        keyboardView.voiceError = state.ui.voiceError
         keyboardView.voiceAvailable = state.voiceAvailable
         keyboardView.spaceBarLanguageName = state.locale.displayLanguage
-        setSuggestions(state.suggestions)
+        topBar.content = state.topBar
         if (state.actionLabel.isNotEmpty()) {
             showActionButton(state.actionLabel)
         } else {
             hideActionButton()
         }
-    }
-
-    fun setSuggestions(suggestions: List<Suggestion>) {
-        suggestionsRow.suggestions = suggestions
-        requestLayout()
-    }
-
-    fun clearSuggestions() {
-        suggestionsRow.clear()
-        requestLayout()
     }
 
     fun showActionButton(label: String) {
@@ -460,10 +431,10 @@ class KeyboardRootView @JvmOverloads constructor(
         keyboardView.requestFocus()
     }
 
-    fun requestSuggestionsFocus() {
-        if (suggestionsEnabled && suggestionsRow.suggestions.isNotEmpty()) {
-            currentZone = FocusZone.SUGGESTIONS
-            suggestionsRow.requestFocus()
+    fun requestTopBarFocus() {
+        if (topBar.content.visible) {
+            currentZone = FocusZone.TOP_BAR
+            topBar.requestFocus()
         }
     }
 
@@ -478,8 +449,8 @@ class KeyboardRootView @JvmOverloads constructor(
             KeyEvent.KEYCODE_DPAD_UP -> {
                 when (currentZone) {
                     FocusZone.KEYBOARD -> {
-                        if (suggestionsEnabled && suggestionsRow.suggestions.isNotEmpty()) {
-                            requestSuggestionsFocus()
+                        if (topBar.content.visible) {
+                            requestTopBarFocus()
                             return true
                         }
                     }
@@ -487,12 +458,12 @@ class KeyboardRootView @JvmOverloads constructor(
                         requestKeyboardFocus()
                         return true
                     }
-                    FocusZone.SUGGESTIONS -> {}
+                    FocusZone.TOP_BAR -> {}
                 }
             }
             KeyEvent.KEYCODE_DPAD_DOWN -> {
                 when (currentZone) {
-                    FocusZone.SUGGESTIONS -> {
+                    FocusZone.TOP_BAR -> {
                         requestKeyboardFocus()
                         return true
                     }
@@ -508,7 +479,7 @@ class KeyboardRootView @JvmOverloads constructor(
             }
             KeyEvent.KEYCODE_DPAD_RIGHT -> {
                 when (currentZone) {
-                    FocusZone.SUGGESTIONS -> {}
+                    FocusZone.TOP_BAR -> {}
                     FocusZone.KEYBOARD -> {
                         if (actionButton != null && actionButton!!.visibility == View.VISIBLE) {
                             currentZone = FocusZone.ACTION
@@ -533,7 +504,7 @@ class KeyboardRootView @JvmOverloads constructor(
         super.onFocusChanged(gainFocus, direction, previouslyFocusedRect)
         if (gainFocus) {
             when (currentZone) {
-                FocusZone.SUGGESTIONS -> suggestionsRow.requestFocus()
+                FocusZone.TOP_BAR -> topBar.requestFocus()
                 FocusZone.ACTION -> actionButton?.requestFocus()
                 FocusZone.KEYBOARD -> keyboardView.requestFocus()
             }
