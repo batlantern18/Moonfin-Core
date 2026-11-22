@@ -129,14 +129,19 @@ class KeyboardView @JvmOverloads constructor(
     private var repeatingKeyIndex: Int = -1
 
     /**
-     * Key with a popup that is waiting for key-up. Popup keys type their base
-     * character on release, so a hold can open the mini keyboard first.
+     * Key waiting for key-up. Popup keys and Space type on release, so a hold
+     * can open the mini keyboard or the input-method picker first.
      */
-    private var pendingPopupKey: Keyboard.Key? = null
+    private var pendingReleaseKey: Keyboard.Key? = null
+
+    /** True once the current press was consumed by a long press. */
+    private var longPressFired = false
+
+    // Held direction repeat: keeps focus moving while the D-pad stays down.
+    private var directionRepeat: Direction? = null
+    private var directionRepeatRunnable: Runnable? = null
 
     private val LONG_PRESS_DELAY_MS = 500L
-    private val REPEAT_DELAY_MS = 400L
-    private val REPEAT_INTERVAL_MS = 50L
 
     private val keyPaint = Paint(Paint.ANTI_ALIAS_FLAG)
     private val textPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
@@ -211,14 +216,17 @@ class KeyboardView @JvmOverloads constructor(
         contentDescription = describe(keys[focusedIndex])
     }
 
-    private fun moveFocus(direction: Direction) {
+    /** Moves focus one key; false when the direction has nowhere to go. */
+    private fun moveFocus(direction: Direction): Boolean {
         val next = KeyboardNavigator.move(cells, focusedIndex, direction, cyclic)
         if (next >= 0 && next != focusedIndex) {
             focusedIndex = next
             pressedIndex = -1
-            contentDescription = keys.getOrNull(next)?.let(::describe)
+            keys.getOrNull(next)?.let { announce(describe(it)) }
             invalidate()
-        } else if (next == focusedIndex) {
+            return true
+        }
+        if (next == focusedIndex) {
             // At the edge: notify EdgeListener
             when (direction) {
                 Direction.UP -> edgeListener?.onEdgeUp()
@@ -227,6 +235,13 @@ class KeyboardView @JvmOverloads constructor(
                 Direction.RIGHT -> edgeListener?.onEdgeRight()
             }
         }
+        return false
+    }
+
+    /** Publishes the focused key to TalkBack, as state and as a spoken event. */
+    private fun announce(text: String) {
+        contentDescription = text
+        if (isShown) announceForAccessibility(text)
     }
 
     private fun activate(index: Int) {
@@ -357,35 +372,55 @@ class KeyboardView @JvmOverloads constructor(
     }
 
     private fun describe(key: Keyboard.Key): String =
-        labelFor(key).ifEmpty { key.codes.firstOrNull()?.toString().orEmpty() }
+        KeyAnnouncements.describe(labelFor(key), key.codes.firstOrNull() ?: 0, shifted)
+
+    /** Whether holding this key does anything beyond typing it. */
+    private fun holdsSomething(key: Keyboard.Key): Boolean {
+        val code = key.codes.firstOrNull() ?: return false
+        return code in LONG_PRESS_CODES || AccentPopup.hasPopup(key)
+    }
+
+    override fun onDetachedFromWindow() {
+        cancelDirectionRepeat()
+        cancelRepeatTimer()
+        cancelLongPressTimer()
+        super.onDetachedFromWindow()
+    }
 
     override fun onKeyDown(keyCode: Int, event: KeyEvent): Boolean {
         when (keyCode) {
-            KeyEvent.KEYCODE_DPAD_UP -> { moveFocus(Direction.UP); return true }
-            KeyEvent.KEYCODE_DPAD_DOWN -> { moveFocus(Direction.DOWN); return true }
-            KeyEvent.KEYCODE_DPAD_LEFT -> { moveFocus(Direction.LEFT); return true }
-            KeyEvent.KEYCODE_DPAD_RIGHT -> { moveFocus(Direction.RIGHT); return true }
+            KeyEvent.KEYCODE_DPAD_UP -> return holdDirection(Direction.UP, event)
+            KeyEvent.KEYCODE_DPAD_DOWN -> return holdDirection(Direction.DOWN, event)
+            KeyEvent.KEYCODE_DPAD_LEFT -> return holdDirection(Direction.LEFT, event)
+            KeyEvent.KEYCODE_DPAD_RIGHT -> return holdDirection(Direction.RIGHT, event)
             KeyEvent.KEYCODE_DPAD_CENTER,
             KeyEvent.KEYCODE_ENTER,
             KeyEvent.KEYCODE_NUMPAD_ENTER,
             -> {
                 if (event.repeatCount == 0) {
+                    cancelDirectionRepeat()
+                    longPressFired = false
                     val focusedKey = keys.getOrNull(focusedIndex)
                     if (focusedKey != null) {
                         val primaryCode = focusedKey.codes.firstOrNull() ?: 0
-                        if (KeyRepeatPolicy.DEFAULT.isRepeatKey(primaryCode)) {
-                            // First press acts immediately
-                            activate(focusedIndex)
-                            startRepeatTimer(focusedIndex)
-                            return true
-                        }
                         when {
+                            KeyRepeatPolicy.DEFAULT.isRepeatKey(primaryCode) -> {
+                                // First press acts immediately
+                                activate(focusedIndex)
+                                startRepeatTimer(focusedIndex)
+                            }
+                            primaryCode == KeyCodes.SPACE -> {
+                                // Space types on release, so holding it can open
+                                // the input-method picker instead.
+                                pendingReleaseKey = focusedKey
+                                startLongPressTimer(focusedKey)
+                            }
                             primaryCode in LONG_PRESS_CODES -> {
                                 startLongPressTimer(focusedKey)
                                 activate(focusedIndex)
                             }
                             AccentPopup.hasPopup(focusedKey) -> {
-                                pendingPopupKey = focusedKey
+                                pendingReleaseKey = focusedKey
                                 startLongPressTimer(focusedKey)
                             }
                             else -> activate(focusedIndex)
@@ -398,17 +433,41 @@ class KeyboardView @JvmOverloads constructor(
         return super.onKeyDown(keyCode, event)
     }
 
+    /**
+     * Moves on the first press, then keeps moving while the direction is held.
+     * Framework repeats are ignored: the timer owns the pace, so a held key
+     * never double-steps.
+     */
+    private fun holdDirection(direction: Direction, event: KeyEvent): Boolean {
+        if (event.repeatCount == 0) {
+            longPressFired = false
+            moveFocus(direction)
+            startDirectionRepeat(direction)
+        }
+        return true
+    }
+
     override fun onKeyUp(keyCode: Int, event: KeyEvent): Boolean {
         when (keyCode) {
+            KeyEvent.KEYCODE_DPAD_UP,
+            KeyEvent.KEYCODE_DPAD_DOWN,
+            KeyEvent.KEYCODE_DPAD_LEFT,
+            KeyEvent.KEYCODE_DPAD_RIGHT,
+            -> {
+                cancelDirectionRepeat()
+                return true
+            }
             KeyEvent.KEYCODE_DPAD_CENTER,
             KeyEvent.KEYCODE_ENTER,
             KeyEvent.KEYCODE_NUMPAD_ENTER,
             -> {
                 cancelRepeatTimer()
                 cancelLongPressTimer()
-                val pending = pendingPopupKey
-                pendingPopupKey = null
-                if (pending != null) {
+                val pending = pendingReleaseKey
+                pendingReleaseKey = null
+                val fired = longPressFired
+                longPressFired = false
+                if (!fired && pending != null) {
                     val index = keys.indexOf(pending)
                     if (index >= 0) activate(index)
                 }
@@ -421,21 +480,47 @@ class KeyboardView @JvmOverloads constructor(
     private fun startRepeatTimer(keyIndex: Int) {
         cancelRepeatTimer()
         repeatingKeyIndex = keyIndex
+        val policy = KeyRepeatPolicy.DEFAULT
         repeatRunnable = object : Runnable {
             override fun run() {
                 if (repeatingKeyIndex >= 0) {
                     activate(repeatingKeyIndex)
-                    repeatHandler.postDelayed(this, REPEAT_INTERVAL_MS)
+                    repeatHandler.postDelayed(this, policy.intervalMs)
                 }
             }
         }
-        repeatHandler.postDelayed(repeatRunnable!!, REPEAT_DELAY_MS)
+        repeatHandler.postDelayed(repeatRunnable!!, policy.initialDelayMs)
     }
 
     private fun cancelRepeatTimer() {
         repeatRunnable?.let { repeatHandler.removeCallbacks(it) }
         repeatRunnable = null
         repeatingKeyIndex = -1
+    }
+
+    private fun startDirectionRepeat(direction: Direction) {
+        cancelDirectionRepeat()
+        directionRepeat = direction
+        val runnable = object : Runnable {
+            override fun run() {
+                val current = directionRepeat ?: return
+                val moved = moveFocus(current)
+                if (!moved && !cyclic) {
+                    // Edge of a row without wrap: no point in ticking on.
+                    cancelDirectionRepeat()
+                    return
+                }
+                repeatHandler.postDelayed(this, KeyRepeatPolicy.DEFAULT.intervalMs)
+            }
+        }
+        directionRepeatRunnable = runnable
+        repeatHandler.postDelayed(runnable, KeyRepeatPolicy.DEFAULT.initialDelayMs)
+    }
+
+    private fun cancelDirectionRepeat() {
+        directionRepeatRunnable?.let { repeatHandler.removeCallbacks(it) }
+        directionRepeatRunnable = null
+        directionRepeat = null
     }
 
     private fun startLongPressTimer(key: Keyboard.Key) {
@@ -454,20 +539,29 @@ class KeyboardView @JvmOverloads constructor(
     private fun onLongPress() {
         val key = longPressKey ?: keys.getOrNull(focusedIndex) ?: return
         longPressKey = null
+        longPressFired = true
+        pendingReleaseKey = null
         feedbackController?.onLongPressOpen(this)
-        when (key.codes.firstOrNull()) {
-            KeyCodes.SHIFT -> (listener as? LongPressListener)?.onLongPressShift()
-            KeyCodes.LANGUAGE, KeyCodes.SPACE -> (listener as? LongPressListener)?.onLongPressLanguage()
-            else -> if (AccentPopup.hasPopup(key)) {
-                pendingPopupKey = null
-                (listener as? LongPressListener)?.onLongPressKey(key)
+        val longPressListener = listener as? LongPressListener
+        when (LongPressTarget.of(key.codes.firstOrNull())) {
+            LongPressTarget.SHIFT_LOCK -> longPressListener?.onLongPressShift()
+            LongPressTarget.INPUT_METHOD_PICKER -> longPressListener?.onLongPressSpace()
+            LongPressTarget.LANGUAGE_SETTINGS -> longPressListener?.onLongPressLanguage()
+            LongPressTarget.KEY_POPUP -> if (AccentPopup.hasPopup(key)) {
+                longPressListener?.onLongPressKey(key)
             }
         }
     }
 
     interface LongPressListener {
         fun onLongPressShift()
+
+        /** Space held: open the system input-method picker. */
+        fun onLongPressSpace()
+
+        /** Language key held: open the system language settings. */
         fun onLongPressLanguage()
+
         fun onLongPressKey(key: Keyboard.Key)
     }
 
@@ -482,10 +576,10 @@ class KeyboardView @JvmOverloads constructor(
                 if (index < 0) return false
                 focusedIndex = index
                 pressedIndex = index
-                contentDescription = keys.getOrNull(index)?.let(::describe)
+                longPressFired = false
+                keys.getOrNull(index)?.let { announce(describe(it)) }
                 val key = keys.getOrNull(index)
-                if (key != null && AccentPopup.hasPopup(key)) {
-                    pendingPopupKey = key
+                if (key != null && holdsSomething(key)) {
                     startLongPressTimer(key)
                 }
                 invalidate()
@@ -502,24 +596,21 @@ class KeyboardView @JvmOverloads constructor(
                 val released = hitTest(event.x, event.y)
                 val pressed = pressedIndex
                 pressedIndex = -1
-                val pending = pendingPopupKey
-                pendingPopupKey = null
                 cancelLongPressTimer()
                 cancelRepeatTimer()
                 invalidate()
-                if (pressed >= 0 && released == pressed) {
-                    val key = keys.getOrNull(pressed)
-                    val popupHeld = key != null && AccentPopup.hasPopup(key) && pending == null
-                    if (!popupHeld) {
-                        performClick()
-                        activate(pressed)
-                    }
+                val fired = longPressFired
+                longPressFired = false
+                if (!fired && pressed >= 0 && released == pressed) {
+                    performClick()
+                    activate(pressed)
                 }
                 return true
             }
             MotionEvent.ACTION_CANCEL -> {
                 pressedIndex = -1
-                pendingPopupKey = null
+                pendingReleaseKey = null
+                longPressFired = false
                 cancelLongPressTimer()
                 cancelRepeatTimer()
                 invalidate()
@@ -534,7 +625,7 @@ class KeyboardView @JvmOverloads constructor(
             val index = hitTest(event.x, event.y)
             if (index >= 0 && index != focusedIndex) {
                 focusedIndex = index
-                contentDescription = keys.getOrNull(index)?.let(::describe)
+                keys.getOrNull(index)?.let { announce(describe(it)) }
                 invalidate()
             }
         }

@@ -184,6 +184,10 @@ class KeyboardRootView @JvmOverloads constructor(
                 (listener as? KeyboardView.LongPressListener)?.onLongPressShift()
             }
 
+            override fun onLongPressSpace() {
+                (listener as? KeyboardView.LongPressListener)?.onLongPressSpace()
+            }
+
             override fun onLongPressLanguage() {
                 (listener as? KeyboardView.LongPressListener)?.onLongPressLanguage()
             }
@@ -410,6 +414,9 @@ class KeyboardRootView @JvmOverloads constructor(
         accentPopup.palette = palette
         accentPopup.cyclic = cyclicNavigation
         accentPopup.rtl = rtl
+        accentPopup.describeKey = { key ->
+            AccentPopup.textFor(key, accentShifted, accentLocale) ?: key.label?.toString().orEmpty()
+        }
         accentPopup.show(resId)
         requestLayout()
     }

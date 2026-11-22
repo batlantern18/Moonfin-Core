@@ -1,12 +1,18 @@
 package com.moonfin.tvkeyboard.ime
 
+import android.content.ActivityNotFoundException
+import android.content.ComponentName
+import android.content.Context
+import android.content.Intent
 import android.content.pm.PackageManager
 import android.content.res.Configuration
+import android.provider.Settings
 import android.inputmethodservice.InputMethodService
 import android.text.InputType
 import android.view.KeyEvent
 import android.view.View
 import android.view.inputmethod.EditorInfo
+import android.view.inputmethod.InputMethodManager
 import android.widget.Toast
 import com.moonfin.tvkeyboard.prefs.KeyboardPreferences
 
@@ -182,15 +188,30 @@ class TvKeyboardService : InputMethodService(), KeyboardRootView.Listener, Keybo
         requestRender()
     }
 
-    /** Long-press the language or space key: open the language picker. */
+    /** Space held: hand the choice of keyboard to the system picker. */
+    override fun onLongPressSpace() {
+        inputMethodManager?.showInputMethodPicker()
+    }
+
+    /** Language key held: open the system settings where languages are managed. */
     override fun onLongPressLanguage() {
-        val view = rootView ?: return
-        view.showLanguagePicker(
-            languages = session.languages,
-            currentIndex = session.languageIndex,
-            cyclic = preferences.cyclicNavigation,
-            rtl = session.language.isRtl,
-        )
+        val imeId = ComponentName(this, TvKeyboardService::class.java).flattenToShortString()
+        val subtypes = Intent(Settings.ACTION_INPUT_METHOD_SUBTYPE_SETTINGS)
+            .putExtra(Settings.EXTRA_INPUT_METHOD_ID, imeId)
+        if (startSystemScreen(subtypes)) return
+        if (startSystemScreen(Intent(Settings.ACTION_LOCALE_SETTINGS))) return
+        inputMethodManager?.showInputMethodPicker()
+    }
+
+    private val inputMethodManager: InputMethodManager?
+        get() = getSystemService(Context.INPUT_METHOD_SERVICE) as? InputMethodManager
+
+    /** Opens a system screen from an IME; false when this device has none. */
+    private fun startSystemScreen(intent: Intent): Boolean = try {
+        startActivity(intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+        true
+    } catch (_: ActivityNotFoundException) {
+        false
     }
 
     /** A key with a vendored popup layout was held: open its mini keyboard. */

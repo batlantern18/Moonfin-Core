@@ -8,6 +8,7 @@ import android.view.MotionEvent
 import android.view.View
 import com.moonfin.tvkeyboard.R
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
@@ -19,7 +20,8 @@ import java.time.Duration
 
 /**
  * Press handling on the main keyboard: a tap types the key once, a hold on a
- * key with a vendored popup opens the mini keyboard instead of typing first.
+ * key with a vendored popup opens the mini keyboard instead of typing first,
+ * and a hold on Space or the language key leaves the app for a system dialog.
  */
 @RunWith(RobolectricTestRunner::class)
 class KeyboardViewPressTest {
@@ -28,6 +30,8 @@ class KeyboardViewPressTest {
     private lateinit var view: KeyboardView
     private val typed = mutableListOf<Int>()
     private val popupsOpened = mutableListOf<Int>()
+    private var pickersOpened = 0
+    private var languageSettingsOpened = 0
 
     @Before
     fun setUp() {
@@ -39,7 +43,12 @@ class KeyboardViewPressTest {
             }
 
             override fun onLongPressShift() = Unit
-            override fun onLongPressLanguage() = Unit
+            override fun onLongPressSpace() {
+                pickersOpened++
+            }
+            override fun onLongPressLanguage() {
+                languageSettingsOpened++
+            }
             override fun onLongPressKey(key: Keyboard.Key) {
                 popupsOpened += key.popupResId
             }
@@ -53,7 +62,17 @@ class KeyboardViewPressTest {
     }
 
     /** The first key of the vendored layout is `1`, which has a popup. */
-    private fun firstKeyCentre(): Pair<Float, Float> {
+    private fun firstKeyCentre(): Pair<Float, Float> = keyCentre { it == 0 }
+
+    /** Centre of the key whose primary code is [code]. */
+    private fun keyCentre(code: Int): Pair<Float, Float> {
+        val keyboard = Keyboard(context, R.xml.qwerty_en_us)
+        val index = keyboard.keys.indexOfFirst { it.codes.firstOrNull() == code }
+        require(index >= 0) { "no key with code $code in the vendored layout" }
+        return keyCentre { it == index }
+    }
+
+    private fun keyCentre(indexMatcher: (Int) -> Boolean): Pair<Float, Float> {
         val keyboard = Keyboard(context, R.xml.qwerty_en_us)
         val cell = KeyboardGeometry.scaled(
             keys = keyboard.keys.mapIndexed { index, key ->
@@ -62,7 +81,7 @@ class KeyboardViewPressTest {
             layoutWidth = keyboard.minWidth,
             layoutHeight = keyboard.height,
             viewWidth = 1080,
-        ).first()
+        ).first { indexMatcher(it.index) }
         return cell.centerX to cell.centerY
     }
 
@@ -76,6 +95,10 @@ class KeyboardViewPressTest {
 
     private fun waitForLongPress() {
         shadowOf(Looper.getMainLooper()).idleFor(Duration.ofMillis(700))
+    }
+
+    private fun idle(millis: Long) {
+        shadowOf(Looper.getMainLooper()).idleFor(Duration.ofMillis(millis))
     }
 
     private fun touch(action: Int, x: Float, y: Float) {
@@ -122,5 +145,65 @@ class KeyboardViewPressTest {
 
         assertEquals(listOf(R.xml.shift_1), popupsOpened)
         assertTrue(typed.isEmpty())
+    }
+
+    @Test
+    fun `holding space opens the system picker and does not type a space`() {
+        val (x, y) = keyCentre(KeyCodes.SPACE)
+        touch(MotionEvent.ACTION_DOWN, x, y)
+        waitForLongPress()
+        touch(MotionEvent.ACTION_UP, x, y)
+
+        assertEquals(1, pickersOpened)
+        assertTrue(typed.isEmpty())
+    }
+
+    @Test
+    fun `a short space tap still types a space`() {
+        val (x, y) = keyCentre(KeyCodes.SPACE)
+        touch(MotionEvent.ACTION_DOWN, x, y)
+        touch(MotionEvent.ACTION_UP, x, y)
+
+        assertEquals(listOf(KeyCodes.SPACE), typed)
+        assertEquals(0, pickersOpened)
+    }
+
+    @Test
+    fun `holding the language key opens the system language settings`() {
+        val (x, y) = keyCentre(KeyCodes.LANGUAGE)
+        touch(MotionEvent.ACTION_DOWN, x, y)
+        waitForLongPress()
+        touch(MotionEvent.ACTION_UP, x, y)
+
+        assertEquals(1, languageSettingsOpened)
+        assertTrue(typed.isEmpty())
+    }
+
+    @Test
+    fun `holding a direction keeps moving focus until it is released`() {
+        view.cyclic = true
+        val start = view.focusedKeyIndex()
+
+        pressKey(KeyEvent.KEYCODE_DPAD_RIGHT)
+        val afterFirstStep = view.focusedKeyIndex()
+        idle(700)
+        val afterHold = view.focusedKeyIndex()
+        releaseKey(KeyEvent.KEYCODE_DPAD_RIGHT)
+        val afterRelease = view.focusedKeyIndex()
+        idle(700)
+
+        assertNotEquals(start, afterFirstStep)
+        assertNotEquals(afterFirstStep, afterHold)
+        assertEquals(afterRelease, view.focusedKeyIndex())
+    }
+
+    @Test
+    fun `focusing a letter with shift on announces a capital`() {
+        view.shifted = true
+        val (x, y) = keyCentre('a'.code)
+
+        touch(MotionEvent.ACTION_DOWN, x, y)
+        assertEquals("A, capital", view.contentDescription)
+        touch(MotionEvent.ACTION_CANCEL, x, y)
     }
 }

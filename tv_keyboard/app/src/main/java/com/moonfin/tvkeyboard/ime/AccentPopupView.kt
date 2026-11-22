@@ -39,6 +39,9 @@ class AccentPopupView @JvmOverloads constructor(
     /** Invoked when the user dismisses the popup without selecting (Back / past the bottom). */
     var onCancel: (() -> Unit)? = null
 
+    /** Text the focused key will insert; the caller owns shift and locale. */
+    var describeKey: ((Keyboard.Key) -> String)? = null
+
     var palette: KeyboardPalette = ThemeCatalog.palette(VisualTheme.MOONFIN, KeyboardStyle.DOCKED)
         set(value) {
             field = value
@@ -86,6 +89,7 @@ class AccentPopupView @JvmOverloads constructor(
         focusedIndex = cells.firstOrNull()?.index ?: 0
         isVisible = true
         visibility = View.VISIBLE
+        updateDescription()
         requestFocus()
         requestLayout()
         invalidate()
@@ -120,8 +124,17 @@ class AccentPopupView @JvmOverloads constructor(
         val next = KeyboardNavigator.move(cells, focusedIndex, direction, cyclic)
         if (next < 0 || next == focusedIndex) return false
         focusedIndex = next
+        updateDescription()
         invalidate()
         return true
+    }
+
+    /** Announces the character that a press would insert, for TalkBack. */
+    private fun updateDescription() {
+        val key = keys.getOrNull(focusedIndex) ?: return
+        val text = describeKey?.invoke(key) ?: key.label?.toString().orEmpty()
+        contentDescription = text
+        if (isShown) announceForAccessibility(text)
     }
 
     override fun onMeasure(widthMeasureSpec: Int, heightMeasureSpec: Int) {

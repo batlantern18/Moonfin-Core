@@ -47,6 +47,7 @@ class KeyboardRootViewAccentTest {
             }
 
             override fun onLongPressShift() = Unit
+            override fun onLongPressSpace() = Unit
             override fun onLongPressLanguage() = Unit
             override fun onLongPressKey(key: Keyboard.Key) {
                 root.showAccentPopup(key.popupResId, shifted = false, locale = Locale.US)
