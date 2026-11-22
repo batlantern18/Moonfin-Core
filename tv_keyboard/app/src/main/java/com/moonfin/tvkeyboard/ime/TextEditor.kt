@@ -9,10 +9,16 @@ package com.moonfin.tvkeyboard.ime
  */
 interface TextEditor {
 
-    /** Insert text at the cursor. */
+    /** Append a typed word character to the composing region. */
+    fun compose(text: String)
+
+    /** The word currently composed in the field, or an empty string. */
+    fun composition(): String
+
+    /** Insert text at the cursor, finishing any composition first. */
     fun insert(text: String)
 
-    /** Remove the selection, or the character before the cursor. */
+    /** Remove the selection, the last composed character, or the character before the cursor. */
     fun deleteBeforeCursor()
 
     fun moveCursorLeft()

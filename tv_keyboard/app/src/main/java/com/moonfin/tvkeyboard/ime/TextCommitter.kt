@@ -67,6 +67,10 @@ object TextCommitter {
         return applyShift(base, shifted, locale).toString()
     }
 
+    /** Whether typed text belongs to the word being composed rather than a whole token. */
+    fun composes(text: String): Boolean =
+        text.length == 1 && text[0].isLetterOrDigit()
+
     fun codePointText(keyCode: Int): String? {
         if (keyCode <= 0) return null
         return try {

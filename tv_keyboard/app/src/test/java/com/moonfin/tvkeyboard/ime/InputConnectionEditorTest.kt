@@ -178,6 +178,97 @@ class InputConnectionEditorTest {
     }
 
     @Test
+    fun `typing composes instead of committing`() {
+        editor.compose("a")
+
+        verify(connection).setComposingText("a", 1)
+        verify(connection, never()).commitText("a", 1)
+        assertEquals("a", editor.composition())
+    }
+
+    @Test
+    fun `each letter extends the same composition`() {
+        editor.compose("a")
+        editor.compose("b")
+
+        verify(connection).setComposingText("ab", 1)
+    }
+
+    @Test
+    fun `delete inside a word shortens the composition instead of the field`() {
+        editor.compose("ab")
+
+        editor.deleteBeforeCursor()
+
+        verify(connection).setComposingText("a", 1)
+        verify(connection, never()).deleteSurroundingText(1, 0)
+        assertEquals("a", editor.composition())
+    }
+
+    @Test
+    fun `deleting the last composed character ends the composition`() {
+        editor.compose("a")
+
+        editor.deleteBeforeCursor()
+
+        verify(connection).setComposingText("", 1)
+        verify(connection).finishComposingText()
+        assertEquals("", editor.composition())
+    }
+
+    @Test
+    fun `a suggestion replaces the composed word and finishes it`() {
+        autoSpace = true
+        editor.compose("ap")
+        editor.compose("p")
+
+        editor.applySuggestion(Suggestion("apple", 3))
+
+        verify(connection).setComposingText("apple", 1)
+        verify(connection).finishComposingText()
+        verify(connection).commitText(" ", 1)
+        verify(connection, never()).deleteSurroundingText(3, 0)
+        assertEquals("", editor.composition())
+    }
+
+    @Test
+    fun `a domain chip commits directly without a trailing space`() {
+        autoSpace = true
+
+        editor.applySuggestion(Suggestion("@gmail.com", 0))
+
+        verify(connection).commitText("@gmail.com", 1)
+        verify(connection, never()).commitText(" ", 1)
+    }
+
+    @Test
+    fun `a space finishes the composed word before it is inserted`() {
+        editor.compose("hi")
+
+        editor.insert(" ")
+
+        verify(connection).finishComposingText()
+        verify(connection).commitText(" ", 1)
+        assertEquals("", editor.composition())
+    }
+
+    @Test
+    fun `a new connection does not inherit the previous composition`() {
+        editor.compose("ab")
+        val next = mock(InputConnection::class.java)
+        val switched = InputConnectionEditor(
+            connection = { next },
+            autoSpace = { false },
+            onChanged = { changes++ },
+        )
+
+        switched.compose("c")
+
+        verify(next).setComposingText("c", 1)
+        assertEquals("c", switched.composition())
+    }
+
+    @Test
     fun `textBeforeCursor and hasSelection read through the same seam`() {
         `when`(connection.getTextBeforeCursor(60, 0)).thenReturn("hello")
 

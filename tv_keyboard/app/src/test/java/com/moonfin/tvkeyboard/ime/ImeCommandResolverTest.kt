@@ -9,18 +9,34 @@ class ImeCommandResolverTest {
     private val locale = Locale.US
 
     @Test
-    fun `letter key inserts its label`() {
+    fun `letter key composes its label`() {
         assertEquals(
-            ImeCommand.InsertText("a"),
+            ImeCommand.ComposeText("a"),
             ImeCommandResolver.resolve('a'.code, "a", shifted = false, locale = locale),
         )
     }
 
     @Test
-    fun `shifted letter key inserts the uppercase letter`() {
+    fun `shifted letter key composes the uppercase letter`() {
         assertEquals(
-            ImeCommand.InsertText("A"),
+            ImeCommand.ComposeText("A"),
             ImeCommandResolver.resolve('a'.code, "a", shifted = true, locale = locale),
+        )
+    }
+
+    @Test
+    fun `punctuation ends the word and commits directly`() {
+        assertEquals(
+            ImeCommand.InsertText("."),
+            ImeCommandResolver.resolve('.'.code, ".", shifted = false, locale = locale),
+        )
+    }
+
+    @Test
+    fun `digits compose because they belong to the word being typed`() {
+        assertEquals(
+            ImeCommand.ComposeText("7"),
+            ImeCommandResolver.resolve('7'.code, "7", shifted = false, locale = locale),
         )
     }
 

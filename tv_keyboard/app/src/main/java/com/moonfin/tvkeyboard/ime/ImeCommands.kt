@@ -7,6 +7,8 @@ import java.util.Locale
  * pure type lets the text pipeline be tested on the JVM without an editor.
  */
 sealed class ImeCommand {
+    /** A word character: extend the composition so predictions can follow it. */
+    data class ComposeText(val text: String) : ImeCommand()
     data class InsertText(val text: String) : ImeCommand()
     data object DeleteBeforeCursor : ImeCommand()
     data object MoveLeft : ImeCommand()
@@ -31,7 +33,13 @@ object ImeCommandResolver {
     ): ImeCommand = when (TextCommitter.resolve(keyCode)) {
         KeyAction.TEXT ->
             TextCommitter.textFor(keyCode, label, shifted, locale)
-                ?.let { ImeCommand.InsertText(it) }
+                ?.let { text ->
+                    if (TextCommitter.composes(text)) {
+                        ImeCommand.ComposeText(text)
+                    } else {
+                        ImeCommand.InsertText(text)
+                    }
+                }
                 ?: ImeCommand.None
         KeyAction.SPACE -> ImeCommand.InsertText(" ")
         KeyAction.DELETE -> ImeCommand.DeleteBeforeCursor

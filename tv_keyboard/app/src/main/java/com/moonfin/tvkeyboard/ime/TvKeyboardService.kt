@@ -158,6 +158,10 @@ class TvKeyboardService : InputMethodService(), KeyboardRootView.Listener, Keybo
     override fun onKey(key: android.inputmethodservice.Keyboard.Key) {
         val keyCode = key.codes.firstOrNull() ?: return
         when (val command = ImeCommandResolver.resolve(keyCode, key.label, session.isShifted, session.locale)) {
+            is ImeCommand.ComposeText -> {
+                editor.compose(command.text)
+                session.consumeShift()
+            }
             is ImeCommand.InsertText -> {
                 editor.insert(command.text)
                 session.consumeShift()
