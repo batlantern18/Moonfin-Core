@@ -15,3 +15,7 @@ _Avoid_: refresh, sync, update, commit cycle
 **Auto-space**:
 The rule that committing a whole token — a suggestion or a paste — is followed by one space, while typing a character is not.
 _Avoid_: trailing space, autospacing
+
+**Field mode**:
+What kind of field the user is typing into — text, email, password or numeric — decided from the field's input type.
+_Avoid_: keyboard mode, input type, layout mode

@@ -435,6 +435,7 @@ class KeyboardRootView @JvmOverloads constructor(
         keyboardView.enlarge = state.ui.enlarge
         keyboardView.voiceState = state.ui.voiceState
         keyboardView.voiceError = state.ui.voiceError
+        keyboardView.voiceAvailable = state.voiceAvailable
         keyboardView.spaceBarLanguageName = state.locale.displayLanguage
         setSuggestions(state.suggestions)
         if (state.actionLabel.isNotEmpty()) {

@@ -102,6 +102,14 @@ class KeyboardView @JvmOverloads constructor(
             invalidate()
         }
 
+    /** False in fields where dictation is not allowed; the voice key goes inert. */
+    var voiceAvailable: Boolean = true
+        set(value) {
+            if (field == value) return
+            field = value
+            invalidate()
+        }
+
     private val density: Float get() = resources.displayMetrics.density
 
     private var keys: List<Keyboard.Key> = emptyList()
@@ -223,6 +231,7 @@ class KeyboardView @JvmOverloads constructor(
 
     private fun activate(index: Int) {
         val key = keys.getOrNull(index) ?: return
+        if (!voiceAvailable && key.codes.firstOrNull() == KeyCodes.VOICE) return
         feedbackController?.onKeyPress(this)
         listener?.onKey(key)
     }
@@ -283,7 +292,9 @@ class KeyboardView @JvmOverloads constructor(
         pressed: Boolean,
     ) {
         val isFunction = key.codes.any { it < 0 }
+        val isDisabled = !voiceAvailable && key.codes.firstOrNull() == KeyCodes.VOICE
         val background = when {
+            isDisabled -> palette.functionKey
             pressed -> palette.accent
             focused -> palette.selectedKey
             isFunction -> palette.functionKey
@@ -304,6 +315,7 @@ class KeyboardView @JvmOverloads constructor(
         if (label.isEmpty()) return
 
         val textColor = when {
+            isDisabled -> palette.textMuted
             pressed -> palette.accentText
             focused -> palette.textOnSelected
             isFunction -> palette.textMuted

@@ -34,6 +34,10 @@ data class KeyboardState(
     val suggestions: List<Suggestion> get() = ui.suggestions
     val suggestionsVisible: Boolean get() = ui.suggestionsEnabled && ui.suggestions.isNotEmpty()
 
+    /** The field's shape, and whether dictation is available in it. */
+    val fieldMode: FieldMode get() = ui.fieldMode
+    val voiceAvailable: Boolean get() = ui.fieldMode.allowsVoice
+
     /** Per-input-connection state: what is being typed and how. */
     data class SessionState(
         val mode: KeyboardSession.Mode,
@@ -61,6 +65,7 @@ data class KeyboardState(
         val keyClickSound: Boolean = false,
         val voiceState: VoiceState = VoiceState.IDLE,
         val voiceError: String = "",
+        val fieldMode: FieldMode = FieldMode.TEXT,
     )
 
     companion object {
@@ -101,6 +106,7 @@ data class KeyboardState(
                     keyClickSound = preferences.keyClickSound,
                     voiceState = voiceState,
                     voiceError = voiceError,
+                    fieldMode = FieldMode.from(session.inputType),
                 ),
             )
     }

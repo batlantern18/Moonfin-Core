@@ -258,6 +258,7 @@ class TvKeyboardService : InputMethodService(), KeyboardRootView.Listener, Keybo
     }
 
     private fun startVoiceInput() {
+        if (!FieldMode.from(session.inputType).allowsVoice) return
         voiceInputController?.start()
     }
 
