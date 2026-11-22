@@ -113,10 +113,6 @@ class TvKeyboardService : InputMethodService(), KeyboardRootView.Listener, Keybo
         val view = KeyboardRootView(this)
         view.listener = this
         view.keyboardView.feedbackController = feedbackController
-        view.onLanguageSelected = { index -> onLanguageSelected(index) }
-        view.onLanguagePickerCancelled = {
-            rootView?.dismissLanguagePicker()
-        }
         view.clipboardOverlay.onPaste = { item ->
             editor.paste(item.text)
             rootView?.requestKeyboardFocus()
@@ -225,13 +221,6 @@ class TvKeyboardService : InputMethodService(), KeyboardRootView.Listener, Keybo
         rootView?.let { feedbackController?.onPopupSelection(it) }
         editor.insert(text)
         session.consumeShift()
-        requestRender()
-    }
-
-    /** A language was chosen in the picker overlay. */
-    private fun onLanguageSelected(index: Int) {
-        session.selectLanguage(index)
-        preferences.selectedLanguageKey = session.languageKey
         requestRender()
     }
 

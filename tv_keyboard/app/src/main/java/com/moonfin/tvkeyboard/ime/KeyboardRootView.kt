@@ -36,12 +36,6 @@ class KeyboardRootView @JvmOverloads constructor(
 
     var listener: Listener? = null
 
-    /** Invoked with the enabled-language index the user picked in the overlay. */
-    var onLanguageSelected: ((Int) -> Unit)? = null
-
-    /** Invoked when the user dismisses the language picker without selecting. */
-    var onLanguagePickerCancelled: (() -> Unit)? = null
-
     var palette: KeyboardPalette = ThemeCatalog.palette(VisualTheme.MOONFIN, KeyboardStyle.DOCKED)
         set(value) {
             field = value
@@ -76,7 +70,6 @@ class KeyboardRootView @JvmOverloads constructor(
             if (field == value) return
             field = value
             layoutDirection = if (value) LAYOUT_DIRECTION_RTL else LAYOUT_DIRECTION_LTR
-            languagePicker.rtl = value
             accentPopup.rtl = value
             invalidate()
         }
@@ -129,14 +122,6 @@ class KeyboardRootView @JvmOverloads constructor(
         layoutParams = FrameLayout.LayoutParams(
             ViewGroup.LayoutParams.MATCH_PARENT,
             ViewGroup.LayoutParams.WRAP_CONTENT,
-        )
-        visibility = View.GONE
-    }
-
-    val languagePicker = LanguagePickerView(context).apply {
-        layoutParams = FrameLayout.LayoutParams(
-            ViewGroup.LayoutParams.MATCH_PARENT,
-            ViewGroup.LayoutParams.MATCH_PARENT,
         )
         visibility = View.GONE
     }
@@ -224,7 +209,6 @@ class KeyboardRootView @JvmOverloads constructor(
         addView(suggestionsRow)
         addView(keyboardView)
         addView(accentPopup)
-        addView(languagePicker)
         addView(clipboardOverlay)
 
         clipboardOverlay.onDismiss = {
@@ -249,12 +233,6 @@ class KeyboardRootView @JvmOverloads constructor(
             requestKeyboardFocus()
         }
 
-        languagePicker.onLanguageSelected = { index ->
-            onLanguageSelected?.invoke(index)
-        }
-        languagePicker.onCancel = {
-            onLanguagePickerCancelled?.invoke()
-        }
     }
 
     override fun onMeasure(widthMeasureSpec: Int, heightMeasureSpec: Int) {
@@ -359,12 +337,6 @@ class KeyboardRootView @JvmOverloads constructor(
             accentPopup.layout(paddingLeft, currentTop, paddingLeft, currentTop)
         }
 
-        if (languagePicker.isVisible) {
-            languagePicker.layout(paddingLeft, paddingTop, paddingLeft + contentWidth, bottom - top - paddingBottom)
-        } else {
-            languagePicker.layout(paddingLeft, paddingTop, paddingLeft, paddingTop)
-        }
-
         if (clipboardOverlay.isVisible) {
             clipboardOverlay.layout(paddingLeft, paddingTop, paddingLeft + contentWidth, bottom - top - paddingBottom)
         } else {
@@ -376,22 +348,6 @@ class KeyboardRootView @JvmOverloads constructor(
         super.onDraw(canvas)
         canvas.drawColor(palette.panel)
     }
-
-    fun showLanguagePicker(languages: List<LanguageLayout>, currentIndex: Int, cyclic: Boolean, rtl: Boolean) {
-        languagePicker.palette = palette
-        this.rtl = rtl
-        languagePicker.show(languages, currentIndex, cyclic, rtl)
-        requestLayout()
-    }
-
-    fun dismissLanguagePicker() {
-        if (languagePicker.isVisible) {
-            languagePicker.hide()
-            requestKeyboardFocus()
-        }
-    }
-
-    val isLanguagePickerVisible: Boolean get() = languagePicker.isVisible
 
     fun showClipboardOverlay(clips: List<ClipboardController.ClipItem>) {
         clipboardOverlay.palette = palette
@@ -512,9 +468,6 @@ class KeyboardRootView @JvmOverloads constructor(
     }
 
     override fun onKeyDown(keyCode: Int, event: KeyEvent): Boolean {
-        if (languagePicker.isVisible) {
-            return languagePicker.onKeyDown(keyCode, event)
-        }
         if (clipboardOverlay.isVisible) {
             return clipboardOverlay.onKeyDown(keyCode, event)
         }
