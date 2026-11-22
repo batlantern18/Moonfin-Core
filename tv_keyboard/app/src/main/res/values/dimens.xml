@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <dimen name="key_height">28.0dip</dimen>
+    <dimen name="key_width">28.0dip</dimen>
+    <dimen name="space_key_width">188.0dip</dimen>
+    <dimen name="keyboard_horizontal_gap">12.0dip</dimen>
+    <dimen name="keyboard_vertical_gap">8.0dip</dimen>
+    <dimen name="action_button_height">52.0dip</dimen>
+
+    <dimen name="settings_padding">48.0dip</dimen>
+    <dimen name="settings_card_radius">8.0dip</dimen>
+    <dimen name="settings_row_height">64.0dip</dimen>
+    <dimen name="focus_scale">1.02</dimen>
+</resources>

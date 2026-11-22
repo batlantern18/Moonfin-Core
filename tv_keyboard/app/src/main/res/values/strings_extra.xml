@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="section_preview">Preview</string>
+    <string name="section_reset">Reset</string>
+    <string name="action_reset_defaults">Reset to Defaults</string>
+    <string name="option_haptic">Haptic feedback</string>
+    <string name="option_haptic_desc">Vibrate on key press and popup selection</string>
+    <string name="option_sound">Key click sound</string>
+    <string name="option_sound_desc">Play audio click effect on key press</string>
+</resources>

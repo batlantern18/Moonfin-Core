@@ -1,0 +1,64 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <!-- Android TV only: no phones or tablets, no touchscreen required. -->
+    <uses-feature
+        android:name="android.software.leanback"
+        android:required="true" />
+    <uses-feature
+        android:name="android.hardware.touchscreen"
+        android:required="false" />
+    <uses-feature
+        android:name="android.hardware.microphone"
+        android:required="false" />
+
+    <uses-permission android:name="android.permission.RECORD_AUDIO" />
+    <uses-permission android:name="com.amazon.tv.ime.permission.KEYBOARD_STATE" />
+
+    <application
+        android:banner="@drawable/tv_banner"
+        android:icon="@drawable/ic_app"
+        android:label="@string/app_name"
+        android:supportsRtl="true"
+        android:theme="@style/Theme.MoonfinTv">
+
+        <activity
+            android:name=".settings.MainActivity"
+            android:exported="true"
+            android:launchMode="singleTop"
+            android:screenOrientation="landscape">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+                <category android:name="android.intent.category.LEANBACK_LAUNCHER" />
+            </intent-filter>
+        </activity>
+
+        <service
+            android:name=".ime.TvKeyboardService"
+            android:exported="true"
+            android:label="@string/ime_name"
+            android:permission="android.permission.BIND_INPUT_METHOD">
+            <intent-filter>
+                <action android:name="android.view.InputMethod" />
+            </intent-filter>
+            <meta-data
+                android:name="android.view.im"
+                android:resource="@xml/method" />
+        </service>
+
+        <!-- Fire TV keyboard state broadcasts. Harmless where unsupported. -->
+        <receiver
+            android:name=".ime.KeyboardStateReceiver"
+            android:enabled="true"
+            android:exported="true"
+            android:permission="com.amazon.tv.ime.permission.KEYBOARD_STATE">
+            <intent-filter>
+                <action android:name="com.amazon.tv.ime.action.CLIENT_TEXT" />
+                <action android:name="com.amazon.tv.ime.action.IME_TEXT" />
+                <action android:name="com.amazon.tv.ime.action.KEYBOARD_STATE" />
+            </intent-filter>
+        </receiver>
+    </application>
+
+</manifest>
