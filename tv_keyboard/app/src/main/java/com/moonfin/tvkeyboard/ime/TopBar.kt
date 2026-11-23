@@ -1,7 +1,7 @@
 package com.moonfin.tvkeyboard.ime
 
 /** What the strip above the keys is showing. */
-enum class TopBarKind { EMPTY, SUGGESTIONS, DOMAINS, DIGITS, VOICE }
+enum class TopBarKind { EMPTY, SUGGESTIONS, DOMAINS, DIGITS, VOICE, CUES }
 
 /**
  * The strip's contents, decided once from the field mode, the voice state and
@@ -29,6 +29,11 @@ data class TopBarContent(
     companion object {
         val EMPTY = TopBarContent(TopBarKind.EMPTY)
 
+        /** Address pieces that finish what most hosts actually ask for. */
+        val URL_CUES: List<Suggestion> =
+            listOf("https://", "http://", "www.", "jellyfin", ".com", ".org", ".net", ":8096", "/")
+                .map { Suggestion(it, 0) }
+
         /** Digits and the symbols a password or code actually contains. */
         val DIGIT_CHIPS: List<String> =
             listOf("1", "2", "3", "4", "5", "6", "7", "8", "9", "0", "@", ".", "_", "-", "!", "#")
@@ -50,6 +55,9 @@ data class TopBarContent(
             return when {
                 fieldMode == FieldMode.PASSWORD ->
                     TopBarContent(TopBarKind.DIGITS, DIGIT_CHIPS.map { Suggestion(it, 0) })
+
+                fieldMode == FieldMode.URL ->
+                    TopBarContent(TopBarKind.CUES, URL_CUES)
 
                 fieldMode == FieldMode.EMAIL && suggestions.isNotEmpty() ->
                     TopBarContent(TopBarKind.DOMAINS, suggestions)

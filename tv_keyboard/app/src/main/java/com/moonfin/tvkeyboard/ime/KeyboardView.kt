@@ -96,6 +96,22 @@ class KeyboardView @JvmOverloads constructor(
             invalidate()
         }
 
+    /** False in password fields; the clipboard key goes inert and never opens. */
+    var clipboardAvailable: Boolean = true
+        set(value) {
+            if (field == value) return
+            field = value
+            invalidate()
+        }
+
+    /** The dot under letters that hold accents; hidden in password fields. */
+    var accentHints: Boolean = true
+        set(value) {
+            if (field == value) return
+            field = value
+            invalidate()
+        }
+
     private val density: Float get() = resources.displayMetrics.density
 
     private var keys: List<Keyboard.Key> = emptyList()
@@ -232,7 +248,9 @@ class KeyboardView @JvmOverloads constructor(
 
     private fun activate(index: Int) {
         val key = keys.getOrNull(index) ?: return
-        if (!voiceAvailable && key.codes.firstOrNull() == KeyCodes.VOICE) return
+        val code = key.codes.firstOrNull()
+        if (!voiceAvailable && code == KeyCodes.VOICE) return
+        if (!clipboardAvailable && code == KeyCodes.CLIPBOARD) return
         feedbackController?.onKeyPress(this)
         listener?.onKey(key)
     }
@@ -270,7 +288,9 @@ class KeyboardView @JvmOverloads constructor(
         pressed: Boolean,
     ) {
         val isFunction = key.codes.any { it < 0 }
-        val isDisabled = !voiceAvailable && key.codes.firstOrNull() == KeyCodes.VOICE
+        val code = key.codes.firstOrNull()
+        val isDisabled = (!voiceAvailable && code == KeyCodes.VOICE) ||
+            (!clipboardAvailable && code == KeyCodes.CLIPBOARD)
         val background = when {
             isDisabled -> palette.functionKey
             pressed -> palette.accent
@@ -303,6 +323,17 @@ class KeyboardView @JvmOverloads constructor(
         fitText(label, rect.width() - 8 * density, rect.height() * 0.42f)
         val baseline = rect.centerY() - (textPaint.descent() + textPaint.ascent()) / 2f
         canvas.drawText(label, rect.centerX(), baseline, textPaint)
+
+        if (accentHints && AccentPopup.hasPopup(key)) {
+            keyPaint.style = Paint.Style.FILL
+            keyPaint.color = if (focused || pressed) palette.textOnSelected else palette.textMuted
+            canvas.drawCircle(
+                rect.centerX(),
+                rect.bottom - 9 * density,
+                (2 * density).coerceAtLeast(1.5f),
+                keyPaint,
+            )
+        }
     }
 
     /** Shrinks the label until it fits the key instead of clipping it. */

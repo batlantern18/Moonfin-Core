@@ -110,6 +110,9 @@ class InputConnectionEditor(
     override fun textBeforeCursor(max: Int): String =
         connection()?.getTextBeforeCursor(max, 0)?.toString().orEmpty()
 
+    override fun textAfterCursor(max: Int): String =
+        connection()?.getTextAfterCursor(max, 0)?.toString().orEmpty()
+
     override fun hasSelection(): Boolean =
         connection()?.getSelectedText(0)?.isNotEmpty() == true
 

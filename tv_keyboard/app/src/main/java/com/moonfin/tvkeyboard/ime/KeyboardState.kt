@@ -18,6 +18,7 @@ import java.util.Locale
 data class KeyboardState(
     val session: SessionState,
     val ui: UIState,
+    val echo: EchoState = EchoState(),
 ) {
     // --- Derived view state, read straight from the aggregate. ---
 
@@ -76,6 +77,8 @@ data class KeyboardState(
         val voiceState: VoiceState = VoiceState.IDLE,
         val voiceError: String = "",
         val fieldMode: FieldMode = FieldMode.TEXT,
+        val style: com.moonfin.tvkeyboard.theme.KeyboardStyle =
+            com.moonfin.tvkeyboard.theme.KeyboardStyle.DOCKED,
     )
 
     companion object {
@@ -90,6 +93,7 @@ data class KeyboardState(
             suggestions: List<Suggestion> = emptyList(),
             voiceState: VoiceState = VoiceState.IDLE,
             voiceError: String = "",
+            echo: EchoState = EchoState(),
         ): KeyboardState =
             KeyboardState(
                 session = SessionState(
@@ -117,7 +121,9 @@ data class KeyboardState(
                     voiceState = voiceState,
                     voiceError = voiceError,
                     fieldMode = FieldMode.from(session.inputType),
+                    style = preferences.style,
                 ),
+                echo = echo,
             )
     }
 }

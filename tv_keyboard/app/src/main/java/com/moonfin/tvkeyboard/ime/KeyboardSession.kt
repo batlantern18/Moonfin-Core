@@ -116,6 +116,8 @@ class KeyboardSession(
     }
 
     fun toggleShift() {
+        // Passwords never auto-capitalise and never offer Caps Lock.
+        if (FieldMode.from(inputType) == FieldMode.PASSWORD) return
         shift = when (shift) {
             Shift.OFF -> Shift.ON
             Shift.ON -> Shift.LOCKED
@@ -124,6 +126,7 @@ class KeyboardSession(
     }
 
     fun lockShift() {
+        if (FieldMode.from(inputType) == FieldMode.PASSWORD) return
         // Long-press Caps Lock: toggle between LOCKED and unlocked (OFF)
         if (shift == Shift.LOCKED) {
             shift = Shift.OFF

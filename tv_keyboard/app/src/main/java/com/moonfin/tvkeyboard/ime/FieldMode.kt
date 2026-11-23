@@ -14,6 +14,7 @@ enum class FieldMode {
     TEXT,
     EMAIL,
     PASSWORD,
+    URL,
     NUMERIC,
     ;
 
@@ -37,6 +38,8 @@ enum class FieldMode {
                     InputType.TYPE_TEXT_VARIATION_EMAIL_ADDRESS,
                     InputType.TYPE_TEXT_VARIATION_WEB_EMAIL_ADDRESS,
                     -> return EMAIL
+
+                    InputType.TYPE_TEXT_VARIATION_URI -> return URL
                 }
             }
             return TEXT

@@ -90,6 +90,13 @@ class KeyboardRootView @JvmOverloads constructor(
     private var accentShifted = false
     private var accentLocale = java.util.Locale.getDefault()
 
+    val echoView = EchoView(context).apply {
+        layoutParams = FrameLayout.LayoutParams(
+            ViewGroup.LayoutParams.MATCH_PARENT,
+            ViewGroup.LayoutParams.WRAP_CONTENT
+        )
+    }
+
     val topBar = TopBarView(context).apply {
         layoutParams = FrameLayout.LayoutParams(
             ViewGroup.LayoutParams.MATCH_PARENT,
@@ -194,6 +201,7 @@ class KeyboardRootView @JvmOverloads constructor(
             override fun onEdgeLeft() {}
         }
 
+        addView(echoView)
         addView(topBar)
         addView(keyboardView)
         addView(accentPopup)
@@ -233,12 +241,18 @@ class KeyboardRootView @JvmOverloads constructor(
 
         val actionButtonHeight = resources.getDimensionPixelSize(R.dimen.action_button_height)
 
+        echoView.measure(
+            MeasureSpec.makeMeasureSpec(measuredWidth, MeasureSpec.EXACTLY),
+            MeasureSpec.makeMeasureSpec(0, MeasureSpec.UNSPECIFIED),
+        )
+        val echoHeight = if (echoView.echo.visible) echoView.measuredHeight else 0
+
         topBar.measure(widthMeasureSpec, MeasureSpec.makeMeasureSpec(0, MeasureSpec.UNSPECIFIED))
         val topBarHeight = if (topBar.content.visible) topBar.measuredHeight else 0
 
         val keyboardWidthSpec = MeasureSpec.makeMeasureSpec(measuredWidth - paddingLeft - paddingRight, MeasureSpec.EXACTLY)
         val keyboardHeightSpec = MeasureSpec.makeMeasureSpec(
-            MeasureSpec.getSize(heightMeasureSpec) - topBarHeight - actionButtonHeight - paddingTop - paddingBottom,
+            MeasureSpec.getSize(heightMeasureSpec) - echoHeight - topBarHeight - actionButtonHeight - paddingTop - paddingBottom,
             MeasureSpec.AT_MOST
         )
         keyboardView.measure(keyboardWidthSpec, keyboardHeightSpec)
@@ -271,7 +285,7 @@ class KeyboardRootView @JvmOverloads constructor(
         }
 
         val actionHeight = if (actionButton != null && actionButton!!.visibility == View.VISIBLE) actionButton!!.measuredHeight else 0
-        val totalHeight = topBarHeight + keyboardView.measuredHeight + actionHeight + paddingTop + paddingBottom
+        val totalHeight = echoHeight + topBarHeight + keyboardView.measuredHeight + actionHeight + paddingTop + paddingBottom
 
         setMeasuredDimension(measuredWidth, resolveSize(totalHeight, heightMeasureSpec))
     }
@@ -279,6 +293,16 @@ class KeyboardRootView @JvmOverloads constructor(
     override fun onLayout(changed: Boolean, left: Int, top: Int, right: Int, bottom: Int) {
         val contentWidth = right - left - paddingLeft - paddingRight
         var currentTop = paddingTop
+
+        if (echoView.echo.visible) {
+            echoView.layout(
+                paddingLeft, currentTop,
+                paddingLeft + contentWidth, currentTop + echoView.measuredHeight
+            )
+            currentTop += echoView.measuredHeight
+        } else {
+            echoView.layout(paddingLeft, currentTop, paddingLeft + contentWidth, currentTop)
+        }
 
         if (topBar.content.visible) {
             topBar.layout(
@@ -378,8 +402,14 @@ class KeyboardRootView @JvmOverloads constructor(
         shifted = state.isShifted
         rtl = state.isRtl
         this.keyboard = keyboard
+        echoView.palette = palette
+        // Docked is the style that reserves a line for what you type; the
+        // compact Classic and Glass windows keep their old footprint.
+        echoView.echo = if (state.ui.style == KeyboardStyle.DOCKED) state.echo else EchoState()
         keyboardView.enlarge = state.ui.enlarge
         keyboardView.voiceAvailable = state.voiceAvailable
+        keyboardView.clipboardAvailable = state.fieldMode != FieldMode.PASSWORD
+        keyboardView.accentHints = state.fieldMode != FieldMode.PASSWORD
         keyboardView.spaceBarLanguageName = state.locale.displayLanguage
         topBar.content = state.topBar
         if (state.actionLabel.isNotEmpty()) {

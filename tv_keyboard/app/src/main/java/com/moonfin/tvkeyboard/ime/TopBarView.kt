@@ -5,6 +5,8 @@ import android.graphics.Canvas
 import android.graphics.Paint
 import android.graphics.RectF
 import android.graphics.Typeface
+import android.text.TextPaint
+import android.text.TextUtils
 import android.util.AttributeSet
 import android.view.KeyEvent
 import android.view.View
@@ -182,7 +184,14 @@ class TopBarView @JvmOverloads constructor(
 
         textPaint.color = if (listening) palette.accentText else 0xFFFFFFFF.toInt()
         textPaint.textSize = 14 * density
-        val label = voiceLabel(content)
+        // Dictation errors are long sentences; keep them inside the plate
+        // instead of letting the window edge cut both ends off.
+        val label = TextUtils.ellipsize(
+            voiceLabel(content),
+            TextPaint(textPaint),
+            (rect.width() - chipPadding * 2).coerceAtLeast(1f),
+            TextUtils.TruncateAt.END,
+        ).toString()
         val baseline = rect.centerY() - (textPaint.descent() + textPaint.ascent()) / 2f
         canvas.drawText(label, rect.centerX(), baseline, textPaint)
     }

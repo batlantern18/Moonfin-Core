@@ -1,5 +1,7 @@
 package com.moonfin.tvkeyboard.ime
 
+import com.moonfin.tvkeyboard.theme.KeyboardStyle
+
 /** Where the compact input window sits horizontally. */
 enum class HorizontalAlignment {
     LEFT,
@@ -27,8 +29,15 @@ data class WindowPlacement(
     val widthFraction: Float = DEFAULT_WIDTH_FRACTION,
 ) {
 
+    /** The same placement, sized for the chosen keyboard style. */
+    fun withStyle(style: KeyboardStyle): WindowPlacement =
+        copy(widthFraction = widthFractionFor(style))
+
     companion object {
         const val DEFAULT_WIDTH_FRACTION = 0.6f
+
+        /** Docked is slightly narrower so the extra rows do not make it tall. */
+        const val DOCKED_WIDTH_FRACTION = 0.52f
         const val OPTION = "horizontalAlignment"
 
         /**
@@ -53,5 +62,15 @@ data class WindowPlacement(
 
         fun widthPx(screenWidth: Int, fraction: Float = DEFAULT_WIDTH_FRACTION): Int =
             (screenWidth * fraction).toInt().coerceAtLeast(1)
+
+        /**
+         * Every style is a compact floating panel: the reference keyboard is a
+         * small centred card, never a bar across the screen. Docked is the
+         * tightest because it also carries the echo and cue rows.
+         */
+        fun widthFractionFor(style: KeyboardStyle): Float = when (style) {
+            KeyboardStyle.DOCKED -> DOCKED_WIDTH_FRACTION
+            KeyboardStyle.CLASSIC, KeyboardStyle.GLASS -> DEFAULT_WIDTH_FRACTION
+        }
     }
 }

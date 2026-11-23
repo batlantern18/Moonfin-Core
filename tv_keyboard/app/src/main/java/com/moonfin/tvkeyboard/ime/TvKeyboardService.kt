@@ -148,15 +148,42 @@ class TvKeyboardService : InputMethodService(), KeyboardRootView.Listener, Keybo
         voiceInputController?.stop()
     }
 
+    /**
+     * Hardware keys and host-side edits change the field without going through
+     * the editor, so the echo line is refreshed here as well.
+     */
+    override fun onUpdateSelection(
+        oldSelStart: Int,
+        oldSelEnd: Int,
+        newSelStart: Int,
+        newSelEnd: Int,
+        candidatesStart: Int,
+        candidatesEnd: Int,
+    ) {
+        super.onUpdateSelection(
+            oldSelStart, oldSelEnd, newSelStart, newSelEnd, candidatesStart, candidatesEnd,
+        )
+        requestRender()
+    }
+
+    /**
+     * Keys the host app left unhandled arrive here, because the IME window is
+     * never focusable. They have to go through the view tree: only that path
+     * reaches the focused key grid, the popups and the action button.
+     */
     override fun onKeyDown(keyCode: Int, event: KeyEvent): Boolean {
+        if (rootView?.dispatchKeyEvent(event) == true) return true
         if (keyCode == KeyEvent.KEYCODE_BACK) {
-            val handled = rootView?.onKeyDown(keyCode, event) ?: false
-            if (!handled) {
-                requestHideSelf(0)
-            }
+            requestHideSelf(0)
             return true
         }
         return super.onKeyDown(keyCode, event)
+    }
+
+    override fun onKeyUp(keyCode: Int, event: KeyEvent): Boolean {
+        if (rootView?.dispatchKeyEvent(event) == true) return true
+        if (keyCode == KeyEvent.KEYCODE_BACK) return true
+        return super.onKeyUp(keyCode, event)
     }
 
     override fun onKey(key: android.inputmethodservice.Keyboard.Key) {
@@ -224,7 +251,7 @@ class TvKeyboardService : InputMethodService(), KeyboardRootView.Listener, Keybo
      * the field, not to the service.
      */
     private fun applyWindowPlacement(info: EditorInfo?) {
-        placement = WindowPlacement.parse(info?.privateImeOptions)
+        placement = WindowPlacement.parse(info?.privateImeOptions).withStyle(preferences.style)
         val inputWindow = window?.window ?: return
         val width = WindowPlacement.widthPx(resources.displayMetrics.widthPixels, placement.widthFraction)
         inputWindow.setLayout(width, WindowManager.LayoutParams.WRAP_CONTENT)
@@ -263,12 +290,18 @@ class TvKeyboardService : InputMethodService(), KeyboardRootView.Listener, Keybo
     private fun renderNow() {
         val view = rootView ?: return
         val suggestions = if (preferences.suggestionsEnabled) currentSuggestions() else emptyList()
+        val echo = EchoState.of(
+            before = editor.textBeforeCursor(ECHO_CONTEXT_CHARS),
+            after = editor.textAfterCursor(ECHO_CONTEXT_CHARS),
+            isPassword = FieldMode.from(session.inputType) == FieldMode.PASSWORD,
+        )
         val state = KeyboardState.from(
             session = session,
             preferences = preferences,
             suggestions = suggestions,
             voiceState = currentVoiceState,
             voiceError = currentVoiceError,
+            echo = echo,
         )
         feedbackController?.updatePreferences(preferences.hapticFeedback, preferences.keyClickSound)
         view.apply(state, session.keyboard)
@@ -306,6 +339,9 @@ class TvKeyboardService : InputMethodService(), KeyboardRootView.Listener, Keybo
     }
 
     companion object {
+        /** Enough text on each side of the caret to draw a readable echo line. */
+        private const val ECHO_CONTEXT_CHARS = 200
+
         private val commonEmailDomains = listOf(
             "@gmail.com", "@yahoo.com", "@hotmail.com", "@outlook.com",
             "@icloud.com", "@aol.com", "@protonmail.com", "@zoho.com",

@@ -82,3 +82,16 @@ Run before merging to `spec/tv-keyboard-parity`.
 ## L — RTL Layouts (if Arabic or Hebrew enabled)
 - [ ] Arabic layout mirrors the keyboard and picker (RTL)
 - [ ] D-pad navigation direction is correct for RTL
+
+## Moonfin style pass (issue #49–#53, emulator run)
+
+| Check | Result |
+| :--- | :--- |
+| Compact Docked card (not full width) | Pass — 52% width, bottom-centred |
+| Echo line mirrors typed text | Pass on password field; URL field shares the code path |
+| Password echo shows bullets, never text | Pass — four bullets for `0620` |
+| Password digit strip, no cue strip | Pass |
+| Password shift/Caps disabled | Pass (unit test `PasswordFieldTest`) |
+| URL cue strip (`https://` … `/`) | Pass — rendered above the keys in the URL field |
+| Accent hint dots on letters | Pass — dot under accent-bearing keys, hidden in passwords |
+| Accent strip overlaying the row above | Not yet — the popup still opens as a grid above the keyboard |

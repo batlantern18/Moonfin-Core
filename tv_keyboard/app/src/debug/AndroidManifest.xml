@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <application>
+
+        <!-- Debug-only host for driving the IME from adb. Never in release builds. -->
+        <activity
+            android:name=".debug.TestHostActivity"
+            android:exported="true"
+            android:label="IME Test Host"
+            android:screenOrientation="landscape"
+            android:windowSoftInputMode="adjustResize" />
+    </application>
+
+</manifest>

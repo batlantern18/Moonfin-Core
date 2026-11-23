@@ -37,6 +37,9 @@ interface TextEditor {
     /** Text between the start of the field and the cursor, capped at [max]. */
     fun textBeforeCursor(max: Int): String
 
+    /** Text after the cursor, capped at [max]. The echo line needs both sides. */
+    fun textAfterCursor(max: Int): String
+
     /** Whether the field currently has a non-empty selection. */
     fun hasSelection(): Boolean
 }
