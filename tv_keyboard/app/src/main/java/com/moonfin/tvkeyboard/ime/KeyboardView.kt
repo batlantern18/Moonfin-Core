@@ -163,6 +163,12 @@ class KeyboardView @JvmOverloads constructor(
 
     fun focusedKeyIndex(): Int = focusedIndex
 
+    /** Rendered size of one key cell; the action check borrows it. */
+    fun keyCellSize(): Int {
+        val cell = cells.firstOrNull() ?: return (44 * density).toInt()
+        return (cell.bottom - cell.top).toInt().coerceAtLeast(1)
+    }
+
     override fun onMeasure(widthMeasureSpec: Int, heightMeasureSpec: Int) {
         val widthMode = MeasureSpec.getMode(widthMeasureSpec)
         val measuredWidth = if (widthMode == MeasureSpec.UNSPECIFIED) {

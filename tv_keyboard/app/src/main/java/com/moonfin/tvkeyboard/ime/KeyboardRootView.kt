@@ -278,9 +278,11 @@ class KeyboardRootView @JvmOverloads constructor(
         }
 
         if (actionButton != null && actionButton!!.visibility == View.VISIBLE) {
+            // One key cell, so the check matches the arrows it sits above.
+            val cell = keyboardView.keyCellSize()
             actionButton!!.measure(
-                MeasureSpec.makeMeasureSpec(measuredWidth - paddingLeft - paddingRight, MeasureSpec.EXACTLY),
-                MeasureSpec.makeMeasureSpec(actionButtonHeight, MeasureSpec.EXACTLY)
+                MeasureSpec.makeMeasureSpec(cell, MeasureSpec.EXACTLY),
+                MeasureSpec.makeMeasureSpec(cell, MeasureSpec.EXACTLY)
             )
         }
 
@@ -316,19 +318,17 @@ class KeyboardRootView @JvmOverloads constructor(
 
         if (actionButton != null && actionButton!!.visibility == View.VISIBLE) {
             val actionHeight = actionButton!!.measuredHeight
-            val actionTop = bottom - top - paddingBottom - actionHeight
+            val actionWidth = actionButton!!.measuredWidth
+            val actionLeft = paddingLeft + contentWidth - actionWidth
             actionButton!!.layout(
-                paddingLeft, actionTop,
-                paddingLeft + contentWidth, actionTop + actionHeight
+                actionLeft, currentTop,
+                actionLeft + actionWidth, currentTop + actionHeight
             )
+            currentTop += actionHeight
         }
 
         val keyboardTop = currentTop
-        val keyboardBottom = if (actionButton != null && actionButton!!.visibility == View.VISIBLE) {
-            actionButton!!.top
-        } else {
-            bottom - top - paddingBottom
-        }
+        val keyboardBottom = bottom - top - paddingBottom
         keyboardView.layout(
             paddingLeft, keyboardTop,
             paddingLeft + contentWidth, keyboardBottom
@@ -559,6 +559,7 @@ class ActionButton @JvmOverloads constructor(
     var label: String = ""
         set(value) {
             field = value
+            contentDescription = value
             invalidate()
         }
 
@@ -569,6 +570,11 @@ class ActionButton @JvmOverloads constructor(
     }
     private val backgroundPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.FILL }
     private val borderPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.STROKE }
+    private val checkPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        style = Paint.Style.STROKE
+        strokeCap = Paint.Cap.ROUND
+        strokeJoin = Paint.Join.ROUND
+    }
     private val radius: Float get() = (8 * density).coerceAtLeast(1f)
 
     init {
@@ -598,11 +604,26 @@ class ActionButton @JvmOverloads constructor(
             canvas.drawRoundRect(rect, radius, radius, borderPaint)
         }
 
-        if (label.isNotEmpty()) {
-            textPaint.color = palette.accentText
-            textPaint.textSize = (16 * density).coerceAtLeast(12f)
-            val baseline = rect.centerY() - (textPaint.descent() + textPaint.ascent()) / 2f
-            canvas.drawText(label, rect.centerX(), baseline, textPaint)
+        when (label) {
+            "Done", "Enter" -> {
+                // Done reads as a check mark, sized to the key cell.
+                checkPaint.color = palette.accentText
+                val side = minOf(rect.width(), rect.height())
+                checkPaint.strokeWidth = (side * 0.10f).coerceAtLeast(3f)
+                val cx = rect.centerX()
+                val cy = rect.centerY()
+                val path = android.graphics.Path()
+                path.moveTo(cx - side * 0.22f, cy)
+                path.lineTo(cx - side * 0.05f, cy + side * 0.17f)
+                path.lineTo(cx + side * 0.24f, cy - side * 0.17f)
+                canvas.drawPath(path, checkPaint)
+            }
+            else -> if (label.isNotEmpty()) {
+                textPaint.color = palette.accentText
+                textPaint.textSize = (16 * density).coerceAtLeast(12f)
+                val baseline = rect.centerY() - (textPaint.descent() + textPaint.ascent()) / 2f
+                canvas.drawText(label, rect.centerX(), baseline, textPaint)
+            }
         }
     }
 }

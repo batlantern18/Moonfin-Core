@@ -113,12 +113,16 @@ class TopBarView @JvmOverloads constructor(
         val rects = mutableListOf<RectF>()
         var currentX = paddingLeft.toFloat()
         val y = paddingTop.toFloat()
+        // A compact window cannot hold every cue; show the ones that fit
+        // instead of letting the last chip be cut in half by the panel edge.
+        val maxRight = (width - paddingRight).toFloat()
 
-        textPaint.textSize = 14 * density
+        textPaint.textSize = 12 * density
 
         for (item in items) {
             val textWidth = textPaint.measureText(item.text)
             val chipWidth = textWidth + chipPadding * 2
+            if (currentX + chipWidth > maxRight) break
             rects.add(RectF(currentX, y, currentX + chipWidth, y + chipHeight))
             currentX += chipWidth + chipSpacing
         }
@@ -163,7 +167,7 @@ class TopBarView @JvmOverloads constructor(
                 isFocused -> palette.textOnSelected
                 else -> palette.textPrimary
             }
-            textPaint.textSize = 14 * density
+            textPaint.textSize = 12 * density
 
             val baseline = rect.centerY() - (textPaint.descent() + textPaint.ascent()) / 2f
             canvas.drawText(items[i].text, rect.centerX(), baseline, textPaint)
@@ -216,7 +220,7 @@ class TopBarView @JvmOverloads constructor(
                 return true
             }
             KeyEvent.KEYCODE_DPAD_RIGHT -> {
-                if (focusedIndex < items.lastIndex) {
+                if (focusedIndex < chipRects.lastIndex) {
                     focusedIndex++
                     pressedIndex = -1
                     invalidate()
