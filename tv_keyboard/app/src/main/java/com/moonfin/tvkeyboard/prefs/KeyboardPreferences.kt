@@ -67,6 +67,20 @@ class KeyboardPreferences(context: Context) {
         set(value) = prefs.edit().putBoolean(KEY_SOUND, value).apply()
 
     /**
+     * Anonymous usage statistics. Off by default and deliberately inert: this
+     * build has no analytics client and no INTERNET permission, so toggling it
+     * only records the choice on this device.
+     */
+    var shareUsageStatistics: Boolean
+        get() = prefs.getBoolean(KEY_SHARE_USAGE_STATISTICS, false)
+        set(value) = prefs.edit().putBoolean(KEY_SHARE_USAGE_STATISTICS, value).apply()
+
+    /** Follow the device locale when choosing the layout for a fresh session. */
+    var useSystemLanguages: Boolean
+        get() = prefs.getBoolean(KEY_USE_SYSTEM_LANGUAGES, true)
+        set(value) = prefs.edit().putBoolean(KEY_USE_SYSTEM_LANGUAGES, value).apply()
+
+    /**
      * The last language the user picked inside the keyboard, so the selection
      * survives a reboot. Null until the user has chosen one; `initialLanguage`
      * honours it before any first-run auto-detection.
@@ -97,14 +111,15 @@ class KeyboardPreferences(context: Context) {
     fun allLanguages(): List<LanguageLayout> = LanguageRegistry.all(appContext)
 
     /**
-     * First-run layout choice: when auto-detect is on, prefer the layout whose
-     * language matches the system locale, then English, then the first entry.
+     * First-run layout choice: when Use system languages is on, prefer the
+     * layout whose language matches the device locale, then English, then the
+     * first entry. A language the user already picked always wins.
      */
     fun initialLanguage(all: List<LanguageLayout> = allLanguages()): LanguageLayout {
         val fallback = all.firstOrNull { it.key == DEFAULT_LANGUAGE } ?: all.first()
         // A persisted choice wins: the user already picked it.
         selectedLanguageKey?.let { key -> all.firstOrNull { it.key == key }?.let { return it } }
-        if (!autodetectLanguage) return fallback
+        if (!useSystemLanguages) return fallback
         val systemLanguage = Locale.getDefault().language
         return all.firstOrNull { it.code.substringBefore('_') == systemLanguage } ?: fallback
     }
@@ -137,6 +152,8 @@ class KeyboardPreferences(context: Context) {
         const val KEY_SELECTED_LANGUAGE = "selectedLanguageKey"
         const val KEY_HAPTIC = "haptic_feedback"
         const val KEY_SOUND = "key_click_sound"
+        const val KEY_SHARE_USAGE_STATISTICS = "shareUsageStatistics"
+        const val KEY_USE_SYSTEM_LANGUAGES = "useSystemLanguages"
         const val DEFAULT_LANGUAGE = "en_us"
     }
 }

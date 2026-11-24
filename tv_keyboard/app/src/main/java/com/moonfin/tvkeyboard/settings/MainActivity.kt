@@ -487,6 +487,10 @@ class MainActivity : Activity() {
         optionsSection = section
 
         val options = listOf(
+            OptionItem(R.string.option_use_system_languages, R.string.option_use_system_languages_desc,
+                { preferences.useSystemLanguages }, { preferences.useSystemLanguages = it }),
+            OptionItem(R.string.option_share_usage_statistics, R.string.option_share_usage_statistics_desc,
+                { preferences.shareUsageStatistics }, { preferences.shareUsageStatistics = it }),
             OptionItem(R.string.option_keep_on_screen, R.string.option_keep_on_screen_desc,
                 { preferences.keepOnScreen }, { preferences.keepOnScreen = it }),
             OptionItem(R.string.option_enlarge, R.string.option_enlarge_desc,
@@ -542,6 +546,8 @@ class MainActivity : Activity() {
         preferences.hideForPhysicalKeyboard = false
         preferences.voiceEnabled = true
         preferences.autodetectLanguage = false
+        preferences.useSystemLanguages = true
+        preferences.shareUsageStatistics = false
         preferences.hapticFeedback = true
         preferences.keyClickSound = false
         preferences.setEnabledLanguageKeys(listOf(KeyboardPreferences.DEFAULT_LANGUAGE))
