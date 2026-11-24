@@ -499,6 +499,8 @@ class MainActivity : Activity() {
                 { preferences.autoSpace }, { preferences.autoSpace = it }),
             OptionItem(R.string.option_hide_physical, R.string.option_hide_physical_desc,
                 { preferences.hideForPhysicalKeyboard }, { preferences.hideForPhysicalKeyboard = it }),
+            OptionItem(R.string.option_remote_keyboard, R.string.option_remote_keyboard_desc,
+                { preferences.remoteKeyboardEnabled }, { preferences.remoteKeyboardEnabled = it }),
             OptionItem(R.string.option_voice, R.string.option_voice_desc,
                 { preferences.voiceEnabled }, { enabled ->
                     preferences.voiceEnabled = enabled
@@ -540,6 +542,7 @@ class MainActivity : Activity() {
         preferences.keepOnScreen = true
         preferences.enlarge = false
         preferences.hideForPhysicalKeyboard = false
+        preferences.remoteKeyboardEnabled = false
         preferences.voiceEnabled = true
         preferences.autodetectLanguage = false
         preferences.hapticFeedback = true

@@ -78,6 +78,8 @@
     <string name="option_auto_space_desc">Add a space after accepting a suggestion or voice result</string>
     <string name="option_hide_physical">Hide for physical keyboard</string>
     <string name="option_hide_physical_desc">Hide the on-screen keyboard when a hardware keyboard is used</string>
+    <string name="option_remote_keyboard">Virtual Remote Keyboard</string>
+    <string name="option_remote_keyboard_desc">Toggles companion mobile keyboard input</string>
     <string name="option_autodetect">Match system language</string>
     <string name="option_autodetect_desc">Pick the closest layout on first run</string>
     <string name="option_voice">Voice input</string>
