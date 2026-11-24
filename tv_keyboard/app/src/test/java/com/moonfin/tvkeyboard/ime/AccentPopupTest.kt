@@ -6,6 +6,7 @@ import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.util.Locale
+import com.moonfin.tvkeyboard.R
 
 /**
  * The rules behind the mini keyboard: which keys offer a popup and what text a
@@ -60,5 +61,22 @@ class AccentPopupTest {
     fun `only keys with a vendored popup resource offer the mini keyboard`() {
         assertTrue(AccentPopup.hasPopup(popupResId = 1))
         assertFalse(AccentPopup.hasPopup(popupResId = 0))
+    }
+
+    @Test
+    fun `hint dot is shown for keys whose popup carries accented variants`() {
+        assertTrue(AccentPopup.isAccentBearing(R.xml.accent_a))
+        assertTrue(AccentPopup.isAccentBearing(R.xml.accent_e))
+        assertTrue(AccentPopup.isAccentBearing(R.xml.accent_n))
+        assertTrue(AccentPopup.isAccentBearing(R.xml.accent_ko_kr_e))
+    }
+
+    @Test
+    fun `hint dot is hidden on shift, punctuation and command popups`() {
+        assertFalse(AccentPopup.isAccentBearing(R.xml.shift_q))
+        assertFalse(AccentPopup.isAccentBearing(R.xml.shift_1))
+        assertFalse(AccentPopup.isAccentBearing(R.xml.accent_slash))
+        assertFalse(AccentPopup.isAccentBearing(R.xml.accent_voice))
+        assertFalse(AccentPopup.isAccentBearing(0))
     }
 }

@@ -267,7 +267,7 @@ class TvKeyboardService : InputMethodService(), KeyboardRootView.Listener, Keybo
     /** A key with a vendored popup layout was held: open its mini keyboard. */
     override fun onLongPressKey(key: android.inputmethodservice.Keyboard.Key) {
         if (!AccentPopup.hasPopup(key)) return
-        rootView?.showAccentPopup(key.popupResId, session.isShifted, session.locale)
+        rootView?.showAccentPopup(key.popupResId, session.isShifted, session.locale, sourceKey = key)
     }
 
     /** A character was chosen in the popup; one-shot Shift is consumed. */
