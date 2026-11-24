@@ -50,6 +50,10 @@ class KeyboardPreferences(context: Context) {
         get() = prefs.getBoolean(KEY_HIDE_PHYSICAL, false)
         set(value) = prefs.edit().putBoolean(KEY_HIDE_PHYSICAL, value).apply()
 
+    var remoteKeyboardEnabled: Boolean
+        get() = prefs.getBoolean(KEY_REMOTE_KEYBOARD, false)
+        set(value) = prefs.edit().putBoolean(KEY_REMOTE_KEYBOARD, value).apply()
+
     var voiceEnabled: Boolean
         get() = prefs.getBoolean(KEY_VOICE, true)
         set(value) = prefs.edit().putBoolean(KEY_VOICE, value).apply()
@@ -132,6 +136,7 @@ class KeyboardPreferences(context: Context) {
         const val KEY_CYCLIC = "cyclicNavigation"
         const val KEY_AUTO_SPACE = "autoSpace"
         const val KEY_HIDE_PHYSICAL = "hidePhysicalKeyboard"
+        const val KEY_REMOTE_KEYBOARD = "remoteKeyboardEnabled"
         const val KEY_VOICE = "voiceEnabled"
         const val KEY_AUTODETECT = "autodetectLanguage"
         const val KEY_SELECTED_LANGUAGE = "selectedLanguageKey"

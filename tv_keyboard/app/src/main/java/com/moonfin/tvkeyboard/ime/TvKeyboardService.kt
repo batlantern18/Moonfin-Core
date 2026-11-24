@@ -32,6 +32,8 @@ class TvKeyboardService : InputMethodService(), KeyboardRootView.Listener, Keybo
     private var voiceInputController: VoiceInputController? = null
     private var clipboardController: ClipboardController? = null
     private var feedbackController: FeedbackController? = null
+    var remoteKeyboardBridge: RemoteKeyboardBridge? = null
+        private set
     private lateinit var editor: InputConnectionEditor
     private lateinit var renderCoalescer: RenderCoalescer
 
@@ -89,6 +91,17 @@ class TvKeyboardService : InputMethodService(), KeyboardRootView.Listener, Keybo
         clipboardController = ClipboardController(this, { text ->
             editor.paste(text)
         }, { })
+
+        remoteKeyboardBridge = RemoteKeyboardBridge(
+            editor = { editor },
+            isEnabled = { preferences.remoteKeyboardEnabled },
+            actionId = { session.actionId },
+        )
+    }
+
+    /** Attach an external companion remote transport (e.g. Android TV remote service). */
+    fun attachRemoteTransport(transport: RemoteKeyboardTransport) {
+        remoteKeyboardBridge?.let { transport.setListener(it) }
     }
 
     override fun onEvaluateFullscreenMode(): Boolean = false
