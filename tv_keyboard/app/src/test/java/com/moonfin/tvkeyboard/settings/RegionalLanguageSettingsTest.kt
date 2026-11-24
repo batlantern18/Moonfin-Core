@@ -77,8 +77,12 @@ class RegionalLanguageSettingsTest {
         checkBoxIn(row).isChecked = true
 
         val stored = KeyboardPreferences(reopened)
+        assertTrue("en_us was lost", "en_us" in stored.enabledLanguageKeys)
         assertTrue("en_gb was not enabled", "en_gb" in stored.enabledLanguageKeys)
-        assertEquals("en_gb", stored.enabledLanguages().single().key)
+        assertTrue(
+            "en_gb is not an enabled layout",
+            stored.enabledLanguages().any { it.key == "en_gb" },
+        )
     }
 
     @Test
