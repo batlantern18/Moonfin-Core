@@ -1,40 +1,89 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <!--
+        Selectable languages. Format: display name|locale code|board variant|board locale.
+        Regional variants keep their own key and label; when they share a physical
+        board with a base language (Dutch Belgium, Nordic, Slavic boards) the last
+        field names that board instead of duplicating the XML.
+    -->
     <string-array name="additional_languages">
+        <!-- English -->
         <item>English|en_us</item>
         <item>English (AZERTY)|en_us|azerty</item>
-        <item>Русский|ru</item>
-        <item>Українська|uk</item>
-        <item>Deutsch|de</item>
-        <item>Български (Фонетичен)|bg</item>
-        <item>Български (БДС)|bg|azerty</item>
+        <item>English (Australia)|en_au</item>
+        <item>English (Canada)|en_ca</item>
+        <item>English (UK)|en_gb</item>
+        <!-- Western Europe -->
         <item>Nederlands|nl</item>
+        <item>Nederlands (België)|nl_be||nl</item>
         <item>Français|fr</item>
         <item>Français (AZERTY)|fr|azerty</item>
-        <item>Danish|da</item>
-        <!-- Greek -->
-        <item>Ελληνικά|el</item>
-        <!-- Icelandic -->
-        <item>Íslenska|is</item>
+        <item>Français (Belgique)|fr_be</item>
+        <item>Français (Canada)|fr_ca</item>
+        <item>Français (Suisse)|fr_ch</item>
+        <item>Deutsch|de</item>
+        <item>Deutsch (Österreich)|de_at</item>
+        <item>Deutsch (Belgien)|de_be</item>
+        <item>Deutsch (Schweiz)|de_ch</item>
+        <item>Irish|ga||en_gb</item>
         <item>Italiano|it</item>
-        <!-- Swedish -->
-        <item>Svenska|sv</item>
+        <item>Italiano (Svizzera)|it_ch</item>
+        <item>Português|pt</item>
+        <item>Português (Brasil)|pt_br</item>
+        <item>Português (Portugal)|pt_pt</item>
         <item>Español|es_us</item>
-        <!-- Romanian -->
+        <item>Español (España)|es_es</item>
+        <item>Español (México)|es_mx</item>
+        <!-- Northern Europe -->
+        <item>Danish|da</item>
+        <item>Estonian|et||sv</item>
+        <item>Finnish|fi||sv</item>
+        <item>Lithuanian|lt||sv</item>
+        <item>Norwegian (Bokmål)|nb||da</item>
+        <item>Svenska|sv</item>
+        <!-- Central and Eastern Europe -->
+        <item>Albanian|sq||sl</item>
+        <item>Български (Фонетичен)|bg</item>
+        <item>Български (БДС)|bg|azerty</item>
+        <item>Croatian|hr||sl</item>
+        <item>Czech|cs||sl</item>
+        <item>Ελληνικά|el</item>
+        <item>Hungarian|hu||sl</item>
+        <item>Íslenska|is</item>
+        <item>Macedonian|mk||bg</item>
+        <item>Polish|pl||sl</item>
         <item>Română|ro</item>
+        <item>Русский|ru</item>
+        <item>Serbian|sr||ru</item>
+        <item>Slovakian|sk||sl</item>
         <item>Slovenščina|sl</item>
-        <!-- Arabic -->
+        <item>Українська|uk</item>
+        <!-- Middle East and South Asia -->
         <item>Arabic|ar</item>
-        <!-- Hebrew -->
-        <item>Hebrew|he</item>
+        <item>Bengali|bn||intl</item>
         <item>Persian|fa</item>
-        <!-- Thai -->
-        <item>ภาษาไทย|th</item>
-        <!-- Turkish -->
+        <item>Hebrew|he</item>
+        <item>Hindi|hi||intl</item>
+        <item>Hindi (transliteration)|hi|trans|hi_trans</item>
+        <item>Punjabi|pa||intl</item>
         <item>Türkçe (Q board)|tr</item>
         <item>Türkçe|tr|azerty</item>
-        <!-- Korean -->
+        <item>Urdu|ur||fa</item>
+        <!-- East and Southeast Asia -->
+        <item>Burmese|my||intl</item>
+        <item>Chinese (Hong Kong)|zh_hk||intl</item>
+        <item>Chinese (Simplified)|zh_cn||intl</item>
+        <item>Chinese (Traditional)|zh_tw||intl</item>
+        <item>Filipino|fil||intl</item>
+        <item>Indonesian|id||intl</item>
+        <item>Japanese (Japan)|ja_jp||intl</item>
         <item>한국어|ko_kr</item>
+        <item>Malay|ms||intl</item>
+        <item>ภาษาไทย|th</item>
+        <item>Vietnamese|vi||intl</item>
+        <!-- Africa and Central Asia -->
+        <item>Afrikaans|af||intl</item>
+        <item>O‘zbek|uz||intl</item>
         <item>ქართული|ka</item>
     </string-array>
 </resources>
