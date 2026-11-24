@@ -138,16 +138,26 @@ class KeyboardPreferences(context: Context) {
 
     /**
      * First-run layout choice: when Use system languages is on, prefer the
-     * layout whose language matches the device locale, then English, then the
-     * first entry. A language the user already picked always wins.
+     * exact regional locale (`en_AU`), then the bare language (`fr`), then
+     * English. A language the user already picked always wins. Regional
+     * variants are never collapsed onto the English default.
      */
     fun initialLanguage(all: List<LanguageLayout> = allLanguages()): LanguageLayout {
         val fallback = all.firstOrNull { it.key == DEFAULT_LANGUAGE } ?: all.first()
         // A persisted choice wins: the user already picked it.
         selectedLanguageKey?.let { key -> all.firstOrNull { it.key == key }?.let { return it } }
         if (!useSystemLanguages) return fallback
-        val systemLanguage = Locale.getDefault().language
-        return all.firstOrNull { it.code.substringBefore('_') == systemLanguage } ?: fallback
+        val locale = Locale.getDefault()
+        val language = locale.language
+        val region = locale.country
+        val tag = locale.toString().replace('-', '_')
+        return all.firstOrNull { it.code.equals(tag, ignoreCase = true) }
+            ?: all.firstOrNull {
+                region.isNotEmpty() &&
+                    it.code.equals("${language}_${region}", ignoreCase = true)
+            }
+            ?: all.firstOrNull { it.code.equals(language, ignoreCase = true) }
+            ?: fallback
     }
 
     fun isEnabled(language: LanguageLayout): Boolean =

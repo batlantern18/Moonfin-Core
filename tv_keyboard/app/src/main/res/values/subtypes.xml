@@ -3,28 +3,79 @@
     <!-- Labels shown for Moonfin's languages in the system keyboard picker. -->
     <string name="subtype_en_us">English</string>
     <string name="subtype_en_us_azerty">English (AZERTY)</string>
-    <string name="subtype_ru">Русский</string>
-    <string name="subtype_uk">Українська</string>
-    <string name="subtype_de">Deutsch</string>
-    <string name="subtype_bg">Български (Фонетичен)</string>
-    <string name="subtype_bg_azerty">Български (БДС)</string>
+    <string name="subtype_en_au">English (Australia)</string>
+    <string name="subtype_en_ca">English (Canada)</string>
+    <string name="subtype_en_gb">English (UK)</string>
+
     <string name="subtype_nl">Nederlands</string>
+    <string name="subtype_nl_be">Nederlands (België)</string>
     <string name="subtype_fr">Français</string>
     <string name="subtype_fr_azerty">Français (AZERTY)</string>
-    <string name="subtype_da">Danish</string>
-    <string name="subtype_el">Ελληνικά</string>
-    <string name="subtype_is">Íslenska</string>
+    <string name="subtype_fr_be">Français (Belgique)</string>
+    <string name="subtype_fr_ca">Français (Canada)</string>
+    <string name="subtype_fr_ch">Français (Suisse)</string>
+    <string name="subtype_de">Deutsch</string>
+    <string name="subtype_de_at">Deutsch (Österreich)</string>
+    <string name="subtype_de_be">Deutsch (Belgien)</string>
+    <string name="subtype_de_ch">Deutsch (Schweiz)</string>
+    <string name="subtype_ga">Irish</string>
     <string name="subtype_it">Italiano</string>
-    <string name="subtype_sv">Svenska</string>
+    <string name="subtype_it_ch">Italiano (Svizzera)</string>
+    <string name="subtype_pt">Português</string>
+    <string name="subtype_pt_br">Português (Brasil)</string>
+    <string name="subtype_pt_pt">Português (Portugal)</string>
     <string name="subtype_es_us">Español</string>
+    <string name="subtype_es_es">Español (España)</string>
+    <string name="subtype_es_mx">Español (México)</string>
+
+    <string name="subtype_da">Danish</string>
+    <string name="subtype_et">Estonian</string>
+    <string name="subtype_fi">Finnish</string>
+    <string name="subtype_lt">Lithuanian</string>
+    <string name="subtype_nb">Norwegian (Bokmål)</string>
+    <string name="subtype_sv">Svenska</string>
+
+    <string name="subtype_sq">Albanian</string>
+    <string name="subtype_bg">Български (Фонетичен)</string>
+    <string name="subtype_bg_azerty">Български (БДС)</string>
+    <string name="subtype_hr">Croatian</string>
+    <string name="subtype_cs">Czech</string>
+    <string name="subtype_el">Ελληνικά</string>
+    <string name="subtype_hu">Hungarian</string>
+    <string name="subtype_is">Íslenska</string>
+    <string name="subtype_mk">Macedonian</string>
+    <string name="subtype_pl">Polish</string>
     <string name="subtype_ro">Română</string>
+    <string name="subtype_ru">Русский</string>
+    <string name="subtype_sr">Serbian</string>
+    <string name="subtype_sk">Slovakian</string>
     <string name="subtype_sl">Slovenščina</string>
+    <string name="subtype_uk">Українська</string>
+
     <string name="subtype_ar">Arabic</string>
-    <string name="subtype_he">Hebrew</string>
+    <string name="subtype_bn">Bengali</string>
     <string name="subtype_fa">Persian</string>
-    <string name="subtype_th">ภาษาไทย</string>
+    <string name="subtype_he">Hebrew</string>
+    <string name="subtype_hi">Hindi</string>
+    <string name="subtype_hi_trans">Hindi (transliteration)</string>
+    <string name="subtype_pa">Punjabi</string>
     <string name="subtype_tr">Türkçe (Q board)</string>
     <string name="subtype_tr_azerty">Türkçe</string>
+    <string name="subtype_ur">Urdu</string>
+
+    <string name="subtype_my">Burmese</string>
+    <string name="subtype_zh_hk">Chinese (Hong Kong)</string>
+    <string name="subtype_zh_cn">Chinese (Simplified)</string>
+    <string name="subtype_zh_tw">Chinese (Traditional)</string>
+    <string name="subtype_fil">Filipino</string>
+    <string name="subtype_id">Indonesian</string>
+    <string name="subtype_ja_jp">Japanese (Japan)</string>
     <string name="subtype_ko_kr">한국어</string>
+    <string name="subtype_ms">Malay</string>
+    <string name="subtype_th">ภาษาไทย</string>
+    <string name="subtype_vi">Vietnamese</string>
+
+    <string name="subtype_af">Afrikaans</string>
+    <string name="subtype_uz">O‘zbek</string>
     <string name="subtype_ka">ქართული</string>
 </resources>
