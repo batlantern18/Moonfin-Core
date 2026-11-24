@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Labels shown for Moonfin's languages in the system keyboard picker. -->
+    <string name="subtype_en_us">English</string>
+    <string name="subtype_en_us_azerty">English (AZERTY)</string>
+    <string name="subtype_ru">Русский</string>
+    <string name="subtype_uk">Українська</string>
+    <string name="subtype_de">Deutsch</string>
+    <string name="subtype_bg">Български (Фонетичен)</string>
+    <string name="subtype_bg_azerty">Български (БДС)</string>
+    <string name="subtype_nl">Nederlands</string>
+    <string name="subtype_fr">Français</string>
+    <string name="subtype_fr_azerty">Français (AZERTY)</string>
+    <string name="subtype_da">Danish</string>
+    <string name="subtype_el">Ελληνικά</string>
+    <string name="subtype_is">Íslenska</string>
+    <string name="subtype_it">Italiano</string>
+    <string name="subtype_sv">Svenska</string>
+    <string name="subtype_es_us">Español</string>
+    <string name="subtype_ro">Română</string>
+    <string name="subtype_sl">Slovenščina</string>
+    <string name="subtype_ar">Arabic</string>
+    <string name="subtype_he">Hebrew</string>
+    <string name="subtype_fa">Persian</string>
+    <string name="subtype_th">ภาษาไทย</string>
+    <string name="subtype_tr">Türkçe (Q board)</string>
+    <string name="subtype_tr_azerty">Türkçe</string>
+    <string name="subtype_ko_kr">한국어</string>
+    <string name="subtype_ka">ქართული</string>
+</resources>
