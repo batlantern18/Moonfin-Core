@@ -162,6 +162,50 @@ class SuggestionEngineTest {
     }
 
     @Test
+    fun `domain suggestions replace typed prefix when textBeforeCursor is set`() {
+        // User has typed "user@" and sees saved email suggestion
+        val savedEmails = listOf("user@gmail.com", "test@yahoo.com")
+        val suggestions = engine.suggestions(
+            textBeforeCursor = "user@",
+            mode = SuggestionMode.DOMAIN,
+            domains = savedEmails + commonDomains,
+        )
+
+        // Saved email should appear first with replacePrefix = length of "user@"
+        assertEquals("user@gmail.com", suggestions[0].text)
+        assertEquals(5, suggestions[0].replacePrefix) // "user@".length = 5
+        assertEquals("test@yahoo.com", suggestions[1].text)
+        assertEquals("@gmail.com", suggestions[2].text)
+    }
+
+    @Test
+    fun `domain suggestions with partial typed text`() {
+        // User has typed "user@gmai" (partial match for "user@gmail.com")
+        val savedEmails = listOf("user@gmail.com")
+        val suggestions = engine.suggestions(
+            textBeforeCursor = "user@gmai",
+            mode = SuggestionMode.DOMAIN,
+            domains = savedEmails,
+        )
+
+        // Suggestion should replace the typed "user@gmai" with full email
+        assertEquals("user@gmail.com", suggestions[0].text)
+        assertEquals(9, suggestions[0].replacePrefix) // "user@gmai".length = 9
+    }
+
+    @Test
+    fun `domain chips append to a typed local part`() {
+        val suggestions = engine.suggestions(
+            textBeforeCursor = "test",
+            mode = SuggestionMode.DOMAIN,
+            domains = listOf("@gmail.com"),
+        )
+
+        assertEquals("@gmail.com", suggestions[0].text)
+        assertEquals(0, suggestions[0].replacePrefix)
+    }
+
+    @Test
     fun `domain suggestions are limited and deduped`() {
         val manyDomains = listOf("email1@test.com", "email2@test.com", "email3@test.com") + commonDomains
         val suggestions = engine.suggestions(
