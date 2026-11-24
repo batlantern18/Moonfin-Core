@@ -15,6 +15,7 @@ import android.view.View
 import android.view.WindowManager
 import android.view.inputmethod.EditorInfo
 import android.view.inputmethod.InputMethodManager
+import android.view.inputmethod.InputMethodSubtype
 import android.widget.Toast
 import com.moonfin.tvkeyboard.prefs.KeyboardPreferences
 
@@ -41,6 +42,9 @@ class TvKeyboardService : InputMethodService(), KeyboardRootView.Listener, Keybo
     private var currentVoiceError: String = ""
     private var currentVoicePartial: String = ""
     private var placement = WindowPlacement()
+
+    /** Last system subtype honoured, so in-app cycling survives later fields. */
+    private var lastAppliedSubtypeHash: Int? = null
 
     override fun onCreate() {
         super.onCreate()
@@ -150,8 +154,52 @@ class TvKeyboardService : InputMethodService(), KeyboardRootView.Listener, Keybo
 
     override fun onStartInput(attribute: EditorInfo?, restarting: Boolean) {
         super.onStartInput(attribute, restarting)
+        syncEnabledSubtypes()
         session.beginInput(attribute, restarting)
+        applyCurrentSubtype()
         requestRender()
+    }
+
+    /**
+     * A subtype picked in system settings becomes the layout for this input
+     * session. The callback only reaches a running IME, so the system's
+     * current subtype is also read when a session starts.
+     */
+    override fun onCurrentInputMethodSubtypeChanged(newSubtype: InputMethodSubtype?) {
+        super.onCurrentInputMethodSubtypeChanged(newSubtype)
+        if (newSubtype != null) applySubtype(newSubtype)
+    }
+
+    private fun applyCurrentSubtype() {
+        val subtype = inputMethodManager?.currentInputMethodSubtype ?: return
+        if (subtype.hashCode() == lastAppliedSubtypeHash) return
+        applySubtype(subtype)
+    }
+
+    private fun applySubtype(subtype: InputMethodSubtype) {
+        lastAppliedSubtypeHash = subtype.hashCode()
+        val extra = subtype.extraValue.orEmpty()
+        if (extra.split(',').none { it.trim() == SubtypeResolver.MOONFIN_MARKER }) return
+        val layout = SubtypeResolver.resolve(preferences.enabledLanguages(), subtype.locale, extra)
+            ?: return
+        if (layout.key == session.languageKey) return
+        session.selectLanguageByKey(layout.key)
+        preferences.selectedLanguageKey = layout.key
+        requestRender()
+    }
+
+    /**
+     * The Android framework reads declared subtypes at install time. Publishing
+     * them again on each input session adds newly enabled languages and removes
+     * ones the user turned off in the in-app settings.
+     */
+    private fun syncEnabledSubtypes() {
+        val imeId = ComponentName(this, TvKeyboardService::class.java).flattenToShortString()
+        val subtypes = SubtypeFactory.build(this, preferences.enabledLanguages())
+        runCatching {
+            @Suppress("DEPRECATION")
+            inputMethodManager?.setAdditionalInputMethodSubtypes(imeId, subtypes.toTypedArray())
+        }
     }
 
     override fun onStartInputView(info: EditorInfo?, restarting: Boolean) {
