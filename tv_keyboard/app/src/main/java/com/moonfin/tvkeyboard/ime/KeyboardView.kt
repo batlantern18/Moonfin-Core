@@ -169,6 +169,13 @@ class KeyboardView @JvmOverloads constructor(
         return (cell.bottom - cell.top).toInt().coerceAtLeast(1)
     }
 
+    /** View-local top of the row holding [key], for placing the accent strip. */
+    fun keyTopForKey(key: Keyboard.Key): Int? {
+        val index = keys.indexOf(key)
+        if (index < 0) return null
+        return cells.getOrNull(index)?.top?.toInt()
+    }
+
     override fun onMeasure(widthMeasureSpec: Int, heightMeasureSpec: Int) {
         val widthMode = MeasureSpec.getMode(widthMeasureSpec)
         val measuredWidth = if (widthMode == MeasureSpec.UNSPECIFIED) {
@@ -330,7 +337,7 @@ class KeyboardView @JvmOverloads constructor(
         val baseline = rect.centerY() - (textPaint.descent() + textPaint.ascent()) / 2f
         canvas.drawText(label, rect.centerX(), baseline, textPaint)
 
-        if (accentHints && AccentPopup.hasPopup(key)) {
+        if (accentHints && AccentPopup.isAccentBearing(key)) {
             keyPaint.style = Paint.Style.FILL
             keyPaint.color = if (focused || pressed) palette.textOnSelected else palette.textMuted
             canvas.drawCircle(

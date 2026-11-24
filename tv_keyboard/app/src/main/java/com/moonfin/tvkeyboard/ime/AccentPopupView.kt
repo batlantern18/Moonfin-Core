@@ -48,6 +48,14 @@ class AccentPopupView @JvmOverloads constructor(
             invalidate()
         }
 
+    /** Keep the base variant filled while the strip is open. */
+    var baseHighlighted: Boolean = false
+        set(value) {
+            if (field == value) return
+            field = value
+            invalidate()
+        }
+
     /** Wrap focus at the popup edges, mirroring the keyboard's cyclic option. */
     var cyclic: Boolean = false
 
@@ -178,8 +186,13 @@ class AccentPopupView @JvmOverloads constructor(
                 paddingTop + cell.bottom - insetY,
             )
             val focused = index == focusedIndex
+            val isBase = index == 0 && baseHighlighted
             keyPaint.style = Paint.Style.FILL
-            keyPaint.color = if (focused) palette.selectedKey else palette.idleKey
+            keyPaint.color = when {
+                focused -> palette.selectedKey
+                isBase -> palette.accent
+                else -> palette.idleKey
+            }
             canvas.drawRoundRect(rect, radius, radius, keyPaint)
 
             if (focused) {
@@ -191,7 +204,11 @@ class AccentPopupView @JvmOverloads constructor(
 
             val label = key.label?.toString().orEmpty()
             if (label.isNotEmpty()) {
-                textPaint.color = if (focused) palette.textOnSelected else palette.textPrimary
+                textPaint.color = when {
+                    focused -> palette.textOnSelected
+                    isBase -> palette.accentText
+                    else -> palette.textPrimary
+                }
                 fitText(label, rect.width() - 6 * density, rect.height() * 0.5f)
                 val baseline = rect.centerY() - (textPaint.descent() + textPaint.ascent()) / 2f
                 canvas.drawText(label, rect.centerX(), baseline, textPaint)
@@ -265,13 +282,22 @@ class AccentPopupView @JvmOverloads constructor(
     }
 
     override fun onKeyUp(keyCode: Int, event: KeyEvent): Boolean {
-        // Swallow the release so it never reaches the main keyboard after the
-        // popup has already handled the press.
         when (keyCode) {
             KeyEvent.KEYCODE_DPAD_CENTER,
             KeyEvent.KEYCODE_ENTER,
             KeyEvent.KEYCODE_NUMPAD_ENTER,
-            -> return true
+            -> {
+                // The letter is still held while the strip is open. Left/Right
+                // moved the selection; releasing commits what is selected now.
+                // With no movement focus is still on the base variant (index 0),
+                // so the base letter is inserted.
+                if (isVisible) {
+                    val key = keys.getOrNull(focusedIndex)
+                    hide()
+                    if (key != null) onSelected?.invoke(key)
+                }
+                return true
+            }
         }
         return super.onKeyUp(keyCode, event)
     }

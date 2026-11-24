@@ -90,6 +90,9 @@ class KeyboardRootView @JvmOverloads constructor(
     private var accentShifted = false
     private var accentLocale = java.util.Locale.getDefault()
 
+    /** Key whose long press opened the strip; its row is the placement anchor. */
+    private var accentSourceKey: android.inputmethodservice.Keyboard.Key? = null
+
     val echoView = EchoView(context).apply {
         layoutParams = FrameLayout.LayoutParams(
             ViewGroup.LayoutParams.MATCH_PARENT,
@@ -215,6 +218,7 @@ class KeyboardRootView @JvmOverloads constructor(
         accentPopup.onSelected = { key ->
             val text = AccentPopup.textFor(key, accentShifted, accentLocale)
             accentPopup.hide()
+            accentSourceKey = null
             requestLayout()
             requestKeyboardFocus()
             if (text != null) {
@@ -225,6 +229,7 @@ class KeyboardRootView @JvmOverloads constructor(
         }
         accentPopup.onCancel = {
             accentPopup.hide()
+            accentSourceKey = null
             requestLayout()
             requestKeyboardFocus()
         }
@@ -336,10 +341,20 @@ class KeyboardRootView @JvmOverloads constructor(
 
         if (accentPopup.isVisible) {
             val popupHeight = accentPopup.measuredHeight
-            val popupTop = (keyboardView.top - popupHeight).coerceAtLeast(paddingTop)
+            // Anchored to the held key's row so the strip covers the row above
+            // it; without a source key it falls back to above the whole grid.
+            val rowTop = accentSourceKey?.let { key ->
+                keyboardView.keyTopForKey(key)?.let { top ->
+                    keyboardView.top + keyboardView.paddingTop + top -
+                        resources.getDimensionPixelSize(R.dimen.keyboard_vertical_gap)
+                }
+            }
+            val popupBottom = (rowTop ?: keyboardView.top)
+                .coerceAtLeast(paddingTop + popupHeight)
+            val popupTop = popupBottom - popupHeight
             accentPopup.layout(
                 paddingLeft, popupTop,
-                paddingLeft + contentWidth, popupTop + popupHeight
+                paddingLeft + contentWidth, popupBottom
             )
         } else {
             accentPopup.layout(paddingLeft, currentTop, paddingLeft, currentTop)
@@ -372,11 +387,18 @@ class KeyboardRootView @JvmOverloads constructor(
 
     val isClipboardOverlayVisible: Boolean get() = clipboardOverlay.isVisible
 
-    fun showAccentPopup(resId: Int, shifted: Boolean, locale: java.util.Locale) {
+    fun showAccentPopup(
+        resId: Int,
+        shifted: Boolean,
+        locale: java.util.Locale,
+        sourceKey: android.inputmethodservice.Keyboard.Key? = null,
+    ) {
         accentShifted = shifted
         accentLocale = locale
+        accentSourceKey = sourceKey
         accentPopup.palette = palette
         accentPopup.cyclic = cyclicNavigation
+        accentPopup.baseHighlighted = AccentPopup.isAccentBearing(resId)
         accentPopup.rtl = rtl
         accentPopup.describeKey = { key ->
             AccentPopup.textFor(key, accentShifted, accentLocale) ?: key.label?.toString().orEmpty()
@@ -388,6 +410,7 @@ class KeyboardRootView @JvmOverloads constructor(
     fun dismissAccentPopup() {
         if (accentPopup.isVisible) {
             accentPopup.hide()
+            accentSourceKey = null
             requestLayout()
             requestKeyboardFocus()
         }
