@@ -468,6 +468,13 @@ class KeyboardRootView @JvmOverloads constructor(
         }
     }
 
+    fun requestActionFocus() {
+        if (actionButton != null && actionButton!!.visibility == View.VISIBLE) {
+            currentZone = FocusZone.ACTION
+            actionButton!!.requestFocus()
+        }
+    }
+
     override fun onKeyDown(keyCode: Int, event: KeyEvent): Boolean {
         if (clipboardOverlay.isVisible) {
             return clipboardOverlay.onKeyDown(keyCode, event)

@@ -20,6 +20,7 @@ class InputConnectionEditor(
     private val connection: () -> InputConnection?,
     private val autoSpace: () -> Boolean,
     private val onChanged: () -> Unit,
+    private val onTextCommitted: (String) -> Unit = {},
 ) : TextEditor {
 
     private val composition = Composition()
@@ -39,6 +40,7 @@ class InputConnectionEditor(
     override fun insert(text: String) = edit { connection ->
         finishComposition(connection)
         connection.commitText(text, 1)
+        onTextCommitted(text)
     }
 
     override fun deleteBeforeCursor() = edit { connection ->
@@ -94,12 +96,14 @@ class InputConnectionEditor(
             finishComposition(connection)
             connection.commitText(suggestion.text, 1)
         }
+        onTextCommitted(suggestion.text)
     }
 
     override fun paste(text: String) = edit { connection ->
         finishComposition(connection)
         connection.commitText(text, 1)
         if (autoSpace()) connection.commitText(" ", 1)
+        onTextCommitted(text)
     }
 
     override fun performAction(actionId: Int) = edit { connection ->
