@@ -23,3 +23,7 @@ cd tv_keyboard
 ./gradlew :app:testDebugUnitTest
 ./gradlew :app:assembleDebug
 ```
+
+## Reference analysis
+
+Reverse-engineering artifacts for the Gboard for Android TV build used as the product reference are in [`docs/analysis/gboard-tv-apk/`](docs/analysis/gboard-tv-apk/).
