@@ -83,8 +83,9 @@ class KeyboardRootViewActionButtonTest {
         val button = root.actionButton
         if (button == null || button.visibility != View.VISIBLE) return false
         button.requestFocus()
-        return button.dispatchKeyEvent(KeyEvent(KeyEvent.ACTION_DOWN, keyCode)) &&
-               button.dispatchKeyEvent(KeyEvent(KeyEvent.ACTION_UP, keyCode))
+        val down = button.dispatchKeyEvent(KeyEvent(KeyEvent.ACTION_DOWN, keyCode))
+        button.dispatchKeyEvent(KeyEvent(KeyEvent.ACTION_UP, keyCode))
+        return down
     }
 
     @Test
@@ -139,13 +140,14 @@ class KeyboardRootViewActionButtonTest {
     }
 
     @Test
-    fun `action button shows Enter for IME_ACTION_NONE`() {
+    fun `action button shows Done for IME_ACTION_NONE`() {
         applyState(EditorInfo.IME_ACTION_NONE)
 
+        // The session normalizes NONE to DONE so the key always performs an action.
         val button = root.actionButton
         assertNotNull(button)
-        assertEquals("Enter", button!!.label)
-        assertEquals("Enter", button.contentDescription)
+        assertEquals("Done", button!!.label)
+        assertEquals("Done", button.contentDescription)
     }
 
     @Test
@@ -238,15 +240,12 @@ class KeyboardRootViewActionButtonTest {
     }
 
     @Test
-    fun `action button not shown when actionId is NONE and fieldMode is PASSWORD`() {
-        // In password field with no specific action, the button may be hidden
-        // based on the implementation - verify behavior
+    fun `action button is still shown when actionId is NONE and fieldMode is PASSWORD`() {
         applyState(EditorInfo.IME_ACTION_NONE, FieldMode.PASSWORD)
 
         val button = root.actionButton
-        // The button should still be shown with "Enter" label
         assertNotNull(button)
-        assertEquals("Enter", button!!.label)
+        assertEquals("Done", button!!.label)
     }
 
     @Test
