@@ -67,6 +67,7 @@ class KeyboardRootViewActionButtonTest {
                 FieldMode.TEXT -> InputType.TYPE_CLASS_TEXT
                 FieldMode.EMAIL -> InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_EMAIL_ADDRESS
                 FieldMode.PASSWORD -> InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_PASSWORD
+                FieldMode.URL -> InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_URI
                 FieldMode.NUMERIC -> InputType.TYPE_CLASS_NUMBER
             }
             imeOptions = actionId
