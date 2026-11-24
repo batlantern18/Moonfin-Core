@@ -506,6 +506,27 @@ class KeyboardRootView @JvmOverloads constructor(
         }
     }
 
+    /**
+     * While the accent strip is held open it owns every D-pad event, including
+     * the release of the center key that commits the highlighted variant. The
+     * long press may have moved focus to another child, so route here rather
+     * than relying on the current focus owner.
+     */
+    override fun dispatchKeyEvent(event: KeyEvent): Boolean {
+        if (!accentPopup.isVisible) return super.dispatchKeyEvent(event)
+        return when (event.action) {
+            KeyEvent.ACTION_DOWN -> {
+                accentPopup.onKeyDown(event.keyCode, event)
+                true
+            }
+            KeyEvent.ACTION_UP -> {
+                accentPopup.onKeyUp(event.keyCode, event)
+                true
+            }
+            else -> true
+        }
+    }
+
     override fun onKeyDown(keyCode: Int, event: KeyEvent): Boolean {
         if (clipboardOverlay.isVisible) {
             return clipboardOverlay.onKeyDown(keyCode, event)
