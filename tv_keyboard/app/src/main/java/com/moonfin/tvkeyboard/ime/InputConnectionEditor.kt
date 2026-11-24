@@ -41,6 +41,12 @@ class InputConnectionEditor(
         connection.commitText(text, 1)
     }
 
+    override fun dictate(text: String) = edit { connection ->
+        finishComposition(connection)
+        connection.commitText(text, 1)
+        if (autoSpace()) connection.commitText(" ", 1)
+    }
+
     override fun deleteBeforeCursor() = edit { connection ->
         composition.adopt(connection.getTextBeforeCursor(composition.length, 0)?.toString())
         val selected = connection.getSelectedText(0)

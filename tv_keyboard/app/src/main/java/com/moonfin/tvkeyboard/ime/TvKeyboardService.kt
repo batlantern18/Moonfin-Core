@@ -37,6 +37,7 @@ class TvKeyboardService : InputMethodService(), KeyboardRootView.Listener, Keybo
 
     private var currentVoiceState: VoiceState = VoiceState.IDLE
     private var currentVoiceError: String = ""
+    private var currentVoicePartial: String = ""
     private var placement = WindowPlacement()
 
     override fun onCreate() {
@@ -73,17 +74,20 @@ class TvKeyboardService : InputMethodService(), KeyboardRootView.Listener, Keybo
         )
 
         voiceInputController = VoiceInputController(this, { text ->
-            editor.insert(text)
+            editor.dictate(text)
         }, { message ->
             currentVoiceState = VoiceState.ERROR
             currentVoiceError = message
+            currentVoicePartial = ""
             requestRender()
         }).also { controller ->
-            controller.onStateChanged = { state, error ->
+            controller.onStateChanged = { state, error, partial ->
                 currentVoiceState = state
                 currentVoiceError = error
+                currentVoicePartial = partial
                 requestRender()
             }
+            controller.onDictationComplete = { rootView?.requestActionFocus() }
         }
 
         clipboardController = ClipboardController(this, { text ->
@@ -301,6 +305,7 @@ class TvKeyboardService : InputMethodService(), KeyboardRootView.Listener, Keybo
             suggestions = suggestions,
             voiceState = currentVoiceState,
             voiceError = currentVoiceError,
+            voicePartial = currentVoicePartial,
             echo = echo,
         )
         feedbackController?.updatePreferences(preferences.hapticFeedback, preferences.keyClickSound)
@@ -328,8 +333,9 @@ class TvKeyboardService : InputMethodService(), KeyboardRootView.Listener, Keybo
     }
 
     private fun startVoiceInput() {
-        if (!FieldMode.from(session.inputType).allowsVoice) return
-        voiceInputController?.start()
+        val fieldMode = FieldMode.from(session.inputType)
+        if (!fieldMode.allowsVoice) return
+        voiceInputController?.start(fieldMode)
     }
 
     private fun showClipboardOverlay() {

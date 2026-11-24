@@ -45,6 +45,7 @@ data class KeyboardState(
             fieldMode = ui.fieldMode,
             voiceState = ui.voiceState,
             voiceError = ui.voiceError,
+            voicePartial = ui.voicePartial,
             suggestions = ui.suggestions,
             suggestionsEnabled = ui.suggestionsEnabled,
         )
@@ -76,6 +77,7 @@ data class KeyboardState(
         val keyClickSound: Boolean = false,
         val voiceState: VoiceState = VoiceState.IDLE,
         val voiceError: String = "",
+        val voicePartial: String = "",
         val fieldMode: FieldMode = FieldMode.TEXT,
         val style: com.moonfin.tvkeyboard.theme.KeyboardStyle =
             com.moonfin.tvkeyboard.theme.KeyboardStyle.DOCKED,
@@ -93,6 +95,7 @@ data class KeyboardState(
             suggestions: List<Suggestion> = emptyList(),
             voiceState: VoiceState = VoiceState.IDLE,
             voiceError: String = "",
+            voicePartial: String = "",
             echo: EchoState = EchoState(),
         ): KeyboardState =
             KeyboardState(
@@ -120,6 +123,7 @@ data class KeyboardState(
                     keyClickSound = preferences.keyClickSound,
                     voiceState = voiceState,
                     voiceError = voiceError,
+                    voicePartial = voicePartial,
                     fieldMode = FieldMode.from(session.inputType),
                     style = preferences.style,
                 ),
