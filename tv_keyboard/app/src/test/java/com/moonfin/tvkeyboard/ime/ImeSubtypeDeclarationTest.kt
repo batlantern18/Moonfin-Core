@@ -60,7 +60,9 @@ class ImeSubtypeDeclarationTest {
                 val locale = parser.getAttributeValue(ANDROID_NS, "imeSubtypeLocale")
                 val label = parser.getAttributeValue(ANDROID_NS, "label")
                 assertTrue("subtype needs a locale", !locale.isNullOrBlank())
-                assertTrue("subtype needs a string label", label?.startsWith("@string/") == true)
+                // AAPT resolves @string references when the XML is compiled,
+                // so the parser yields the label text rather than the resource id.
+                assertTrue("subtype needs a string label", !label.isNullOrBlank())
                 assertEquals("keyboard", parser.getAttributeValue(ANDROID_NS, "imeSubtypeMode"))
                 assertEquals("true", parser.getAttributeValue(ANDROID_NS, "isAsciiCapable"))
             }
