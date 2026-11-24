@@ -412,14 +412,14 @@ class KeyboardRootView @JvmOverloads constructor(
         keyboardView.accentHints = state.fieldMode != FieldMode.PASSWORD
         keyboardView.spaceBarLanguageName = state.locale.displayLanguage
         topBar.content = state.topBar
-        if (state.actionLabel.isNotEmpty()) {
-            showActionButton(state.actionLabel)
-        } else {
-            hideActionButton()
-        }
+
+        // Derive the action affordance from the editor action ID, not from Field mode.
+        val affordance = ActionAffordance.affordanceFor(state.session.actionId)
+        showActionButton(affordance)
     }
 
-    fun showActionButton(label: String) {
+    /** Show the action button with the given affordance. */
+    fun showActionButton(affordance: ActionAffordance.Affordance) {
         if (actionButton == null) {
             actionButton = ActionButton(context).apply {
                 layoutParams = FrameLayout.LayoutParams(
@@ -445,7 +445,8 @@ class KeyboardRootView @JvmOverloads constructor(
                 addView(this)
             }
         }
-        actionButton!!.label = label
+        actionButton!!.label = affordance.label
+        actionButton!!.contentDescription = affordance.contentDescription
         actionButton!!.palette = palette
         actionButton!!.visibility = View.VISIBLE
         requestLayout()
@@ -617,6 +618,44 @@ class ActionButton @JvmOverloads constructor(
                 path.lineTo(cx - side * 0.05f, cy + side * 0.17f)
                 path.lineTo(cx + side * 0.24f, cy - side * 0.17f)
                 canvas.drawPath(path, checkPaint)
+            }
+            "Search" -> {
+                // Search reads as a magnifying glass icon.
+                checkPaint.color = palette.accentText
+                val side = minOf(rect.width(), rect.height())
+                checkPaint.strokeWidth = (side * 0.10f).coerceAtLeast(3f)
+                val cx = rect.centerX()
+                val cy = rect.centerY()
+                val path = android.graphics.Path()
+                // outer circle
+                path.addCircle(cx, cy, side * 0.28f, android.graphics.Path.Direction.CW)
+                // inner circle cut
+                path.addCircle(cx, cy, side * 0.18f, android.graphics.Path.Direction.CCW)
+                // handle
+                path.moveTo(cx, cy + side * 0.28f)
+                path.lineTo(cx - side * 0.15f, cy + side * 0.42f)
+                path.lineTo(cx + side * 0.15f, cy + side * 0.42f)
+                canvas.drawPath(path, checkPaint)
+            }
+            "Next" -> {
+                // Next reads as a right arrow.
+                checkPaint.color = palette.accentText
+                val side = minOf(rect.width(), rect.height())
+                checkPaint.strokeWidth = (side * 0.12f).coerceAtLeast(3f)
+                val cx = rect.centerX()
+                val cy = rect.centerY()
+                val path = android.graphics.Path()
+                path.moveTo(cx - side * 0.25f, cy - side * 0.15f)
+                path.lineTo(cx - side * 0.10f, cy)
+                path.lineTo(cx + side * 0.25f, cy - side * 0.15f)
+                canvas.drawPath(path, checkPaint)
+            }
+            "Go" -> {
+                // Go reads as the label "Go".
+                textPaint.color = palette.accentText
+                textPaint.textSize = (16 * density).coerceAtLeast(12f)
+                val baseline = rect.centerY() - (textPaint.descent() + textPaint.ascent()) / 2f
+                canvas.drawText(label, rect.centerX(), baseline, textPaint)
             }
             else -> if (label.isNotEmpty()) {
                 textPaint.color = palette.accentText
