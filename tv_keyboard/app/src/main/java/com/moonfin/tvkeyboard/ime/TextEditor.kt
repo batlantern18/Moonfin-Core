@@ -18,6 +18,12 @@ interface TextEditor {
     /** Insert text at the cursor, finishing any composition first. */
     fun insert(text: String)
 
+    /**
+     * Insert a whole dictated result as one token, honouring Auto-space.
+     * Unlike a typed character it never joins the composing word.
+     */
+    fun dictate(text: String)
+
     /** Remove the selection, the last composed character, or the character before the cursor. */
     fun deleteBeforeCursor()
 

@@ -154,6 +154,38 @@ class InputConnectionEditorTest {
     }
 
     @Test
+    fun `dictation commits one whole token plus a space when auto-space is on`() {
+        autoSpace = true
+
+        editor.dictate("hello world")
+
+        val ordered = org.mockito.Mockito.inOrder(connection)
+        ordered.verify(connection).commitText("hello world", 1)
+        ordered.verify(connection).commitText(" ", 1)
+        assertEquals(1, changes)
+    }
+
+    @Test
+    fun `dictation commits no space when auto-space is off`() {
+        editor.dictate("hello world")
+
+        verify(connection).commitText("hello world", 1)
+        verify(connection, never()).commitText(" ", 1)
+    }
+
+    @Test
+    fun `dictation finishes the composed word before committing the result`() {
+        editor.compose("hel")
+
+        editor.dictate("hello world")
+
+        val ordered = org.mockito.Mockito.inOrder(connection)
+        ordered.verify(connection).finishComposingText()
+        ordered.verify(connection).commitText("hello world", 1)
+        assertEquals("", editor.composition())
+    }
+
+    @Test
     fun `performAction forwards the action id`() {
         editor.performAction(3)
 

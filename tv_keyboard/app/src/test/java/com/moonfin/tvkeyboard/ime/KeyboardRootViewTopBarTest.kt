@@ -2,6 +2,7 @@ package com.moonfin.tvkeyboard.ime
 
 import android.content.Context
 import android.view.View
+import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -49,5 +50,19 @@ class KeyboardRootViewTopBarTest {
         val listening = measure(root)
 
         assertTrue(listening > collapsed)
+    }
+
+    @Test
+    fun `the voice plate announces the latest partial transcript`() {
+        val context: Context = RuntimeEnvironment.getApplication()
+        val root = KeyboardRootView(context)
+
+        root.topBar.content = TopBarContent.of(
+            fieldMode = FieldMode.TEXT,
+            voiceState = VoiceState.LISTENING,
+            voicePartial = "hello wor",
+        )
+
+        assertEquals("hello wor", root.topBar.contentDescription)
     }
 }

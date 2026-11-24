@@ -462,6 +462,20 @@ class KeyboardRootView @JvmOverloads constructor(
         keyboardView.requestFocus()
     }
 
+    /**
+     * Hand D-pad focus to the primary action key once dictation is committed.
+     * A hidden action leaves focus on the keys rather than on an invisible view.
+     */
+    fun requestActionFocus() {
+        val button = actionButton
+        if (button != null && button.visibility == View.VISIBLE) {
+            currentZone = FocusZone.ACTION
+            button.requestFocus()
+        } else {
+            requestKeyboardFocus()
+        }
+    }
+
     fun requestTopBarFocus() {
         if (topBar.content.visible) {
             currentZone = FocusZone.TOP_BAR

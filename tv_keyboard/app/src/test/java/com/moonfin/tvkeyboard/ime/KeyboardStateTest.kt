@@ -105,6 +105,19 @@ class KeyboardStateTest {
     }
 
     @Test
+    fun `a partial voice transcript reaches the top bar content`() {
+        val state = KeyboardState.from(
+            session = session,
+            preferences = preferences,
+            voiceState = VoiceState.LISTENING,
+            voicePartial = "hello wor",
+        )
+
+        assertEquals(TopBarKind.VOICE, state.topBar.kind)
+        assertEquals("hello wor", state.topBar.voicePartial)
+    }
+
+    @Test
     fun `two identical renders compare equal`() {
         val a = KeyboardState.from(session, preferences)
         val b = KeyboardState.from(session, preferences)
