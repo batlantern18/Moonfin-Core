@@ -96,7 +96,7 @@ class PrivacyControlsTest {
         val root = target.findViewById<View>(android.R.id.content)
         collectTextViews(root, labels)
         val label = labels.first { it.text?.toString() == target.getString(titleRes) }
-        return (label.parent as? View)?.parent as? View
+        return (label.parent as? View)?.parent as? View ?: error("Row not found for $titleRes")
     }
 
     @Test

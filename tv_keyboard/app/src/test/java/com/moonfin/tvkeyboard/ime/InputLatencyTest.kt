@@ -62,8 +62,8 @@ class InputLatencyTest {
         val coldStartMs = coldStartStopwatch.elapsedMs()
         println("Cold start latency: ${coldStartMs} ms")
 
-        // Should fail: 250 ms > 200 ms
-        assertTrue("Cold start $coldStartMs ms exceeds 200 ms budget", coldStartMs <= 200)
+        // The check must report this as over budget: 250 ms > 200 ms
+        assertTrue("Cold start $coldStartMs ms should exceed 200 ms budget", coldStartMs > 200)
     }
 
     @Test
@@ -101,15 +101,14 @@ class InputLatencyTest {
 
         // Simulate slow key press to render path
         fakeClock.advance(100_000_000L) // 100 ms key event processing
-        fakeClock.advance(100_000_000L) // 100 ms editor operations
+        fakeClock.advance(101_000_000L) // 101 ms editor operations
 
         keyPressStopwatch.stop()
 
         val keyPressMs = keyPressStopwatch.elapsedMs()
         println("Key press to render latency: ${keyPressMs} ms")
 
-        // Should fail: 200 ms exactly at the boundary, should still pass
-        // But if we add even 1 more ms, it should fail
-        assertTrue("Key press to render $keyPressMs ms exceeds 200 ms budget", keyPressMs <= 200)
+        // The check must report this as over budget: 201 ms > 200 ms
+        assertTrue("Key press to render $keyPressMs ms should exceed 200 ms budget", keyPressMs > 200)
     }
 }

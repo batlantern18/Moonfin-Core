@@ -1,5 +1,6 @@
 package com.moonfin.tvkeyboard.ime
 
+import android.view.inputmethod.EditorInfo
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -15,7 +16,7 @@ class KeyboardRootViewFocusTest {
     @Test
     fun `the handoff focuses the primary action key`() {
         val root = root()
-        root.showActionButton("Search")
+        root.showActionButton(ActionAffordance.affordanceFor(EditorInfo.IME_ACTION_SEARCH))
 
         root.requestActionFocus()
 
@@ -36,7 +37,7 @@ class KeyboardRootViewFocusTest {
     @Test
     fun `a hidden action button is not a handoff target`() {
         val root = root()
-        root.showActionButton("Go")
+        root.showActionButton(ActionAffordance.affordanceFor(EditorInfo.IME_ACTION_GO))
         root.hideActionButton()
         root.requestKeyboardFocus()
 
