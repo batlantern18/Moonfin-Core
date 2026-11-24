@@ -51,6 +51,25 @@ class TopBarContentTest {
     }
 
     @Test
+    fun `a partial transcript replaces the listening label`() {
+        val content = TopBarContent.of(
+            fieldMode = FieldMode.TEXT,
+            voiceState = VoiceState.LISTENING,
+            voicePartial = "hello wor",
+        )
+
+        assertEquals(TopBarKind.VOICE, content.kind)
+        assertEquals("hello wor", content.voiceDisplayText("Listening…", "Unavailable"))
+    }
+
+    @Test
+    fun `an empty partial keeps the listening label`() {
+        val content = TopBarContent.of(FieldMode.TEXT, VoiceState.LISTENING)
+
+        assertEquals("Listening…", content.voiceDisplayText("Listening…", "Unavailable"))
+    }
+
+    @Test
     fun `a voice error keeps its message`() {
         val content = TopBarContent.of(
             fieldMode = FieldMode.TEXT,

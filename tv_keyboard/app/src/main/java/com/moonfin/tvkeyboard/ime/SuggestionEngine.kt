@@ -48,7 +48,9 @@ class SuggestionEngine(
                 .asSequence()
                 .distinct()
                 .take(limit)
-                .map { Suggestion(it, 0) }
+                // A saved full address replaces the partial address being typed;
+                // a domain chip ("@gmail.com") is appended to the local part.
+                .map { Suggestion(it, if (it.startsWith("@")) 0 else prefix.length) }
                 .toList()
 
             SuggestionMode.AUTO_COMPLETE, SuggestionMode.DEFAULT -> provider.completions(prefix)

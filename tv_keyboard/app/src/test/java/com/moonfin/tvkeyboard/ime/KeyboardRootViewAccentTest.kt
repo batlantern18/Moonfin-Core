@@ -50,7 +50,7 @@ class KeyboardRootViewAccentTest {
             override fun onLongPressSpace() = Unit
             override fun onLongPressLanguage() = Unit
             override fun onLongPressKey(key: Keyboard.Key) {
-                root.showAccentPopup(key.popupResId, shifted = false, locale = Locale.US)
+                root.showAccentPopup(key.popupResId, shifted = false, locale = Locale.US, sourceKey = key)
             }
         }
         root.keyboard = Keyboard(context, R.xml.qwerty_en_us)
@@ -69,6 +69,19 @@ class KeyboardRootViewAccentTest {
     private fun openPopup(shifted: Boolean = false, locale: Locale = Locale.US) {
         root.showAccentPopup(R.xml.accent_e, shifted, locale)
         layout()
+    }
+
+    /** Move the grid focus onto `e`, whose popup is the accent strip. */
+    private fun focusE() {
+        dispatch(KeyEvent.KEYCODE_DPAD_DOWN)
+        dispatch(KeyEvent.KEYCODE_DPAD_RIGHT)
+        dispatch(KeyEvent.KEYCODE_DPAD_RIGHT)
+    }
+
+    /** Move the grid focus onto `a`, in the row below `e`. */
+    private fun focusA() {
+        dispatch(KeyEvent.KEYCODE_DPAD_DOWN)
+        dispatch(KeyEvent.KEYCODE_DPAD_DOWN)
     }
 
     private fun dispatch(keyCode: Int) {
@@ -93,36 +106,51 @@ class KeyboardRootViewAccentTest {
     }
 
     @Test
-    fun `holding center opens the popup without typing the base character`() {
+    fun `holding a letter opens the strip and releasing commits the base letter`() {
+        focusE()
         holdCenter()
 
         assertTrue(root.isAccentPopupVisible)
+        assertTrue(committed.isEmpty())
         assertTrue(keysPressed.isEmpty())
 
         releaseCenter()
 
-        assertTrue(root.isAccentPopupVisible)
+        assertFalse(root.isAccentPopupVisible)
+        assertEquals(listOf("e"), committed)
         assertTrue(keysPressed.isEmpty())
     }
 
     @Test
-    fun `hold, navigate, select commits the chosen accent and returns focus`() {
-        // Move the main cursor onto the `e` key, whose popup is accent_e.
-        dispatch(KeyEvent.KEYCODE_DPAD_DOWN)
-        dispatch(KeyEvent.KEYCODE_DPAD_RIGHT)
-        dispatch(KeyEvent.KEYCODE_DPAD_RIGHT)
-
+    fun `hold, navigate while held, release commits the chosen accent and returns focus`() {
+        focusE()
         holdCenter()
-        releaseCenter()
-        // Android lays out the newly visible overlay before the next key event.
-        layout()
 
+        // The center key is still down; Left/Right move the strip selection.
         dispatch(KeyEvent.KEYCODE_DPAD_RIGHT)
-        dispatch(KeyEvent.KEYCODE_DPAD_CENTER)
+        assertEquals(1, root.accentPopup.focusedIndex)
+
+        releaseCenter()
+        layout()
 
         assertEquals(listOf("è"), committed)
         assertTrue(keysPressed.isEmpty())
         assertTrue(root.findFocus() is KeyboardView)
+    }
+
+    @Test
+    fun `the strip sits over the row above the long-pressed key`() {
+        focusA()
+        holdCenter()
+        layout()
+
+        val aKey = root.keyboard!!.keys.first { it.codes.firstOrNull() == 97 }
+        val rowTop = root.keyboardView.top + root.keyboardView.paddingTop +
+            (root.keyboardView.keyTopForKey(aKey) ?: error("a key has no cell"))
+        val popup = root.accentPopup
+
+        assertTrue("popup bottom ${popup.bottom} should be above row top $rowTop", popup.bottom <= rowTop)
+        assertTrue("popup top ${popup.top} should overlay the key grid", popup.top >= root.keyboardView.top)
     }
 
     @Test

@@ -6,6 +6,7 @@ import com.moonfin.tvkeyboard.ime.LanguageLayout
 import com.moonfin.tvkeyboard.ime.LanguageRegistry
 import com.moonfin.tvkeyboard.theme.KeyboardStyle
 import com.moonfin.tvkeyboard.theme.VisualTheme
+import java.util.LinkedHashSet
 import java.util.Locale
 
 /**
@@ -38,6 +39,27 @@ class KeyboardPreferences(context: Context) {
         get() = prefs.getBoolean(KEY_SUGGESTIONS, true)
         set(value) = prefs.edit().putBoolean(KEY_SUGGESTIONS, value).apply()
 
+    /** Saved email addresses for the suggestion strip, ordered by recent use. */
+    var savedEmails: Set<String>
+        get() {
+            val stored = prefs.getStringSet(KEY_SAVED_EMAILS, null) ?: return emptySet()
+            return LinkedHashSet(stored)
+        }
+        set(value) = prefs.edit().putStringSet(KEY_SAVED_EMAILS, value).apply()
+
+    /** Adds an email address to the saved list, maintaining order with most recent first. */
+    fun addSavedEmail(email: String) {
+        val current = savedEmails.toMutableList()
+        current.remove(email) // Remove if already present
+        current.add(0, email) // Add at the front
+        savedEmails = LinkedHashSet(current)
+    }
+
+    /** Clears all saved email addresses. */
+    fun clearSavedEmails() {
+        prefs.edit().remove(KEY_SAVED_EMAILS).apply()
+    }
+
     var cyclicNavigation: Boolean
         get() = prefs.getBoolean(KEY_CYCLIC, false)
         set(value) = prefs.edit().putBoolean(KEY_CYCLIC, value).apply()
@@ -49,6 +71,10 @@ class KeyboardPreferences(context: Context) {
     var hideForPhysicalKeyboard: Boolean
         get() = prefs.getBoolean(KEY_HIDE_PHYSICAL, false)
         set(value) = prefs.edit().putBoolean(KEY_HIDE_PHYSICAL, value).apply()
+
+    var remoteKeyboardEnabled: Boolean
+        get() = prefs.getBoolean(KEY_REMOTE_KEYBOARD, false)
+        set(value) = prefs.edit().putBoolean(KEY_REMOTE_KEYBOARD, value).apply()
 
     var voiceEnabled: Boolean
         get() = prefs.getBoolean(KEY_VOICE, true)
@@ -65,6 +91,20 @@ class KeyboardPreferences(context: Context) {
     var keyClickSound: Boolean
         get() = prefs.getBoolean(KEY_SOUND, false)
         set(value) = prefs.edit().putBoolean(KEY_SOUND, value).apply()
+
+    /**
+     * Anonymous usage statistics. Off by default and deliberately inert: this
+     * build has no analytics client and no INTERNET permission, so toggling it
+     * only records the choice on this device.
+     */
+    var shareUsageStatistics: Boolean
+        get() = prefs.getBoolean(KEY_SHARE_USAGE_STATISTICS, false)
+        set(value) = prefs.edit().putBoolean(KEY_SHARE_USAGE_STATISTICS, value).apply()
+
+    /** Follow the device locale when choosing the layout for a fresh session. */
+    var useSystemLanguages: Boolean
+        get() = prefs.getBoolean(KEY_USE_SYSTEM_LANGUAGES, true)
+        set(value) = prefs.edit().putBoolean(KEY_USE_SYSTEM_LANGUAGES, value).apply()
 
     /**
      * The last language the user picked inside the keyboard, so the selection
@@ -97,16 +137,27 @@ class KeyboardPreferences(context: Context) {
     fun allLanguages(): List<LanguageLayout> = LanguageRegistry.all(appContext)
 
     /**
-     * First-run layout choice: when auto-detect is on, prefer the layout whose
-     * language matches the system locale, then English, then the first entry.
+     * First-run layout choice: when Use system languages is on, prefer the
+     * exact regional locale (`en_AU`), then the bare language (`fr`), then
+     * English. A language the user already picked always wins. Regional
+     * variants are never collapsed onto the English default.
      */
     fun initialLanguage(all: List<LanguageLayout> = allLanguages()): LanguageLayout {
         val fallback = all.firstOrNull { it.key == DEFAULT_LANGUAGE } ?: all.first()
         // A persisted choice wins: the user already picked it.
         selectedLanguageKey?.let { key -> all.firstOrNull { it.key == key }?.let { return it } }
-        if (!autodetectLanguage) return fallback
-        val systemLanguage = Locale.getDefault().language
-        return all.firstOrNull { it.code.substringBefore('_') == systemLanguage } ?: fallback
+        if (!useSystemLanguages) return fallback
+        val locale = Locale.getDefault()
+        val language = locale.language
+        val region = locale.country
+        val tag = locale.toString().replace('-', '_')
+        return all.firstOrNull { it.code.equals(tag, ignoreCase = true) }
+            ?: all.firstOrNull {
+                region.isNotEmpty() &&
+                    it.code.equals("${language}_${region}", ignoreCase = true)
+            }
+            ?: all.firstOrNull { it.code.equals(language, ignoreCase = true) }
+            ?: fallback
     }
 
     fun isEnabled(language: LanguageLayout): Boolean =
@@ -131,12 +182,16 @@ class KeyboardPreferences(context: Context) {
         const val KEY_SUGGESTIONS = "suggestionsEnabled"
         const val KEY_CYCLIC = "cyclicNavigation"
         const val KEY_AUTO_SPACE = "autoSpace"
+        const val KEY_SAVED_EMAILS = "savedEmails"
         const val KEY_HIDE_PHYSICAL = "hidePhysicalKeyboard"
+        const val KEY_REMOTE_KEYBOARD = "remoteKeyboardEnabled"
         const val KEY_VOICE = "voiceEnabled"
         const val KEY_AUTODETECT = "autodetectLanguage"
         const val KEY_SELECTED_LANGUAGE = "selectedLanguageKey"
         const val KEY_HAPTIC = "haptic_feedback"
         const val KEY_SOUND = "key_click_sound"
+        const val KEY_SHARE_USAGE_STATISTICS = "shareUsageStatistics"
+        const val KEY_USE_SYSTEM_LANGUAGES = "useSystemLanguages"
         const val DEFAULT_LANGUAGE = "en_us"
     }
 }

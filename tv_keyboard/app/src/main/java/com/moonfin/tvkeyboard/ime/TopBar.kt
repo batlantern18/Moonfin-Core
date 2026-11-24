@@ -17,6 +17,8 @@ data class TopBarContent(
     val items: List<Suggestion> = emptyList(),
     val voiceState: VoiceState = VoiceState.IDLE,
     val voiceError: String = "",
+    /** The latest recognised words, shown on the plate while the user speaks. */
+    val voicePartial: String = "",
 ) {
     /** Voice always shows; otherwise the strip needs at least one item. */
     val visible: Boolean
@@ -24,6 +26,17 @@ data class TopBarContent(
             TopBarKind.EMPTY -> false
             TopBarKind.VOICE -> true
             else -> items.isNotEmpty()
+        }
+
+    /**
+     * The plate's single line: the live transcript when there is one, otherwise
+     * the state's own label. Kept here so the view only draws what it is given.
+     */
+    fun voiceDisplayText(listeningLabel: String, unavailableLabel: String): String =
+        when (voiceState) {
+            VoiceState.LISTENING -> voicePartial.ifBlank { listeningLabel }
+            VoiceState.ERROR -> "⚠ ${voiceError.ifBlank { unavailableLabel }}"
+            VoiceState.IDLE -> ""
         }
 
     companion object {
@@ -42,6 +55,7 @@ data class TopBarContent(
             fieldMode: FieldMode,
             voiceState: VoiceState = VoiceState.IDLE,
             voiceError: String = "",
+            voicePartial: String = "",
             suggestions: List<Suggestion> = emptyList(),
             suggestionsEnabled: Boolean = true,
         ): TopBarContent {
@@ -50,6 +64,7 @@ data class TopBarContent(
                     kind = TopBarKind.VOICE,
                     voiceState = voiceState,
                     voiceError = voiceError,
+                    voicePartial = voicePartial,
                 )
             }
             return when {

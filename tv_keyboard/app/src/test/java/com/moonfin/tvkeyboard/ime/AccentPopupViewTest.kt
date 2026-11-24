@@ -50,6 +50,10 @@ class AccentPopupViewTest {
         popup.onKeyDown(keyCode, KeyEvent(KeyEvent.ACTION_DOWN, keyCode))
     }
 
+    private fun release(keyCode: Int) {
+        popup.onKeyUp(keyCode, KeyEvent(KeyEvent.ACTION_UP, keyCode))
+    }
+
     @Test
     fun `opening focuses the first choice and is visible`() {
         open(R.xml.accent_e)
@@ -143,5 +147,49 @@ class AccentPopupViewTest {
         press(KeyEvent.KEYCODE_DPAD_UP)
 
         assertEquals(0, popup.focusedIndex)
+    }
+
+    @Test
+    fun `left and right move the selection while the key is held`() {
+        open(R.xml.accent_e)
+        val start = popup.focusedIndex
+
+        press(KeyEvent.KEYCODE_DPAD_RIGHT)
+        assertEquals(start + 1, popup.focusedIndex)
+
+        press(KeyEvent.KEYCODE_DPAD_LEFT)
+        assertEquals(start, popup.focusedIndex)
+    }
+
+    @Test
+    fun `releasing the held center commits the selected variant`() {
+        open(R.xml.accent_e)
+        press(KeyEvent.KEYCODE_DPAD_RIGHT)
+
+        release(KeyEvent.KEYCODE_DPAD_CENTER)
+
+        assertEquals("è", selected?.label?.toString())
+        assertFalse(popup.isVisible)
+    }
+
+    @Test
+    fun `releasing without moving commits the base letter`() {
+        open(R.xml.accent_e)
+
+        release(KeyEvent.KEYCODE_DPAD_CENTER)
+
+        assertEquals("e", selected?.label?.toString())
+        assertFalse(popup.isVisible)
+    }
+
+    @Test
+    fun `releasing enter commits the selected variant too`() {
+        open(R.xml.accent_e)
+        press(KeyEvent.KEYCODE_DPAD_RIGHT)
+
+        release(KeyEvent.KEYCODE_ENTER)
+
+        assertEquals("è", selected?.label?.toString())
+        assertFalse(popup.isVisible)
     }
 }

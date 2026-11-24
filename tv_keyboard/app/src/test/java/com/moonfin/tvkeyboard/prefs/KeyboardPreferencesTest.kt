@@ -99,6 +99,18 @@ class KeyboardPreferencesTest {
     }
 
     @Test
+    fun `remoteKeyboardEnabled defaults to false`() {
+        `when`(prefs.getBoolean(KeyboardPreferences.KEY_REMOTE_KEYBOARD, false)).thenReturn(false)
+        assertFalse(preferences.remoteKeyboardEnabled)
+    }
+
+    @Test
+    fun `remoteKeyboardEnabled persists and restores`() {
+        `when`(prefs.getBoolean(KeyboardPreferences.KEY_REMOTE_KEYBOARD, false)).thenReturn(true)
+        assertTrue(preferences.remoteKeyboardEnabled)
+    }
+
+    @Test
     fun `voiceEnabled defaults to true`() {
         `when`(prefs.getBoolean(KeyboardPreferences.KEY_VOICE, true)).thenReturn(true)
         assertTrue(preferences.voiceEnabled)

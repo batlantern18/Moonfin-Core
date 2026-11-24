@@ -15,6 +15,7 @@ import android.view.View
 import android.view.WindowManager
 import android.view.inputmethod.EditorInfo
 import android.view.inputmethod.InputMethodManager
+import android.view.inputmethod.InputMethodSubtype
 import android.widget.Toast
 import com.moonfin.tvkeyboard.prefs.KeyboardPreferences
 
@@ -32,12 +33,18 @@ class TvKeyboardService : InputMethodService(), KeyboardRootView.Listener, Keybo
     private var voiceInputController: VoiceInputController? = null
     private var clipboardController: ClipboardController? = null
     private var feedbackController: FeedbackController? = null
+    var remoteKeyboardBridge: RemoteKeyboardBridge? = null
+        private set
     private lateinit var editor: InputConnectionEditor
     private lateinit var renderCoalescer: RenderCoalescer
 
     private var currentVoiceState: VoiceState = VoiceState.IDLE
     private var currentVoiceError: String = ""
+    private var currentVoicePartial: String = ""
     private var placement = WindowPlacement()
+
+    /** Last system subtype honoured, so in-app cycling survives later fields. */
+    private var lastAppliedSubtypeHash: Int? = null
 
     override fun onCreate() {
         super.onCreate()
@@ -59,6 +66,11 @@ class TvKeyboardService : InputMethodService(), KeyboardRootView.Listener, Keybo
             connection = { currentInputConnection },
             autoSpace = { preferences.autoSpace },
             onChanged = { requestRender() },
+            onTextCommitted = { text ->
+                if (FieldMode.from(session.inputType) == FieldMode.EMAIL && text.contains("@")) {
+                    preferences.addSavedEmail(text)
+                }
+            },
         )
         renderCoalescer = RenderCoalescer(
             scheduler = { block ->
@@ -73,22 +85,36 @@ class TvKeyboardService : InputMethodService(), KeyboardRootView.Listener, Keybo
         )
 
         voiceInputController = VoiceInputController(this, { text ->
-            editor.insert(text)
+            editor.dictate(text)
         }, { message ->
             currentVoiceState = VoiceState.ERROR
             currentVoiceError = message
+            currentVoicePartial = ""
             requestRender()
         }).also { controller ->
-            controller.onStateChanged = { state, error ->
+            controller.onStateChanged = { state, error, partial ->
                 currentVoiceState = state
                 currentVoiceError = error
+                currentVoicePartial = partial
                 requestRender()
             }
+            controller.onDictationComplete = { rootView?.requestActionFocus() }
         }
 
         clipboardController = ClipboardController(this, { text ->
             editor.paste(text)
         }, { })
+
+        remoteKeyboardBridge = RemoteKeyboardBridge(
+            editor = { editor },
+            isEnabled = { preferences.remoteKeyboardEnabled },
+            actionId = { session.actionId },
+        )
+    }
+
+    /** Attach an external companion remote transport (e.g. Android TV remote service). */
+    fun attachRemoteTransport(transport: RemoteKeyboardTransport) {
+        remoteKeyboardBridge?.let { transport.setListener(it) }
     }
 
     override fun onEvaluateFullscreenMode(): Boolean = false
@@ -128,8 +154,52 @@ class TvKeyboardService : InputMethodService(), KeyboardRootView.Listener, Keybo
 
     override fun onStartInput(attribute: EditorInfo?, restarting: Boolean) {
         super.onStartInput(attribute, restarting)
+        syncEnabledSubtypes()
         session.beginInput(attribute, restarting)
+        applyCurrentSubtype()
         requestRender()
+    }
+
+    /**
+     * A subtype picked in system settings becomes the layout for this input
+     * session. The callback only reaches a running IME, so the system's
+     * current subtype is also read when a session starts.
+     */
+    override fun onCurrentInputMethodSubtypeChanged(newSubtype: InputMethodSubtype?) {
+        super.onCurrentInputMethodSubtypeChanged(newSubtype)
+        if (newSubtype != null) applySubtype(newSubtype)
+    }
+
+    private fun applyCurrentSubtype() {
+        val subtype = inputMethodManager?.currentInputMethodSubtype ?: return
+        if (subtype.hashCode() == lastAppliedSubtypeHash) return
+        applySubtype(subtype)
+    }
+
+    private fun applySubtype(subtype: InputMethodSubtype) {
+        lastAppliedSubtypeHash = subtype.hashCode()
+        val extra = subtype.extraValue.orEmpty()
+        if (extra.split(',').none { it.trim() == SubtypeResolver.MOONFIN_MARKER }) return
+        val layout = SubtypeResolver.resolve(preferences.enabledLanguages(), subtype.locale, extra)
+            ?: return
+        if (layout.key == session.languageKey) return
+        session.selectLanguageByKey(layout.key)
+        preferences.selectedLanguageKey = layout.key
+        requestRender()
+    }
+
+    /**
+     * The Android framework reads declared subtypes at install time. Publishing
+     * them again on each input session adds newly enabled languages and removes
+     * ones the user turned off in the in-app settings.
+     */
+    private fun syncEnabledSubtypes() {
+        val imeId = ComponentName(this, TvKeyboardService::class.java).flattenToShortString()
+        val subtypes = SubtypeFactory.build(this, preferences.enabledLanguages())
+        runCatching {
+            @Suppress("DEPRECATION")
+            inputMethodManager?.setAdditionalInputMethodSubtypes(imeId, subtypes.toTypedArray())
+        }
     }
 
     override fun onStartInputView(info: EditorInfo?, restarting: Boolean) {
@@ -267,7 +337,7 @@ class TvKeyboardService : InputMethodService(), KeyboardRootView.Listener, Keybo
     /** A key with a vendored popup layout was held: open its mini keyboard. */
     override fun onLongPressKey(key: android.inputmethodservice.Keyboard.Key) {
         if (!AccentPopup.hasPopup(key)) return
-        rootView?.showAccentPopup(key.popupResId, session.isShifted, session.locale)
+        rootView?.showAccentPopup(key.popupResId, session.isShifted, session.locale, sourceKey = key)
     }
 
     /** A character was chosen in the popup; one-shot Shift is consumed. */
@@ -284,7 +354,12 @@ class TvKeyboardService : InputMethodService(), KeyboardRootView.Listener, Keybo
 
     override fun onSuggestionSelected(suggestion: Suggestion, index: Int) {
         editor.applySuggestion(suggestion)
-        rootView?.requestKeyboardFocus()
+        // Email completions move focus to the action button
+        if (FieldMode.from(session.inputType) == FieldMode.EMAIL) {
+            rootView?.requestActionFocus()
+        } else {
+            rootView?.requestKeyboardFocus()
+        }
     }
 
     private fun renderNow() {
@@ -301,6 +376,7 @@ class TvKeyboardService : InputMethodService(), KeyboardRootView.Listener, Keybo
             suggestions = suggestions,
             voiceState = currentVoiceState,
             voiceError = currentVoiceError,
+            voicePartial = currentVoicePartial,
             echo = echo,
         )
         feedbackController?.updatePreferences(preferences.hapticFeedback, preferences.keyClickSound)
@@ -311,10 +387,13 @@ class TvKeyboardService : InputMethodService(), KeyboardRootView.Listener, Keybo
     private fun currentSuggestions(): List<Suggestion> {
         val textBeforeCursor = editor.textBeforeCursor(SuggestionEngine.MAX_PREFIX_LOOKBEHIND)
         val mode = suggestionEngine.modeFor(session.inputType)
+        val domains = mutableListOf<String>()
+        domains.addAll(preferences.savedEmails)
+        domains.addAll(commonEmailDomains)
         return suggestionEngine.suggestions(
             textBeforeCursor = textBeforeCursor,
             mode = mode,
-            domains = commonEmailDomains,
+            domains = domains,
             limit = SuggestionEngine.MAX_SUGGESTIONS,
         )
     }
@@ -328,8 +407,9 @@ class TvKeyboardService : InputMethodService(), KeyboardRootView.Listener, Keybo
     }
 
     private fun startVoiceInput() {
-        if (!FieldMode.from(session.inputType).allowsVoice) return
-        voiceInputController?.start()
+        val fieldMode = FieldMode.from(session.inputType)
+        if (!fieldMode.allowsVoice) return
+        voiceInputController?.start(fieldMode)
     }
 
     private fun showClipboardOverlay() {

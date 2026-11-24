@@ -200,12 +200,10 @@ class TopBarView @JvmOverloads constructor(
         canvas.drawText(label, rect.centerX(), baseline, textPaint)
     }
 
-    private fun voiceLabel(content: TopBarContent): String = when (content.voiceState) {
-        VoiceState.LISTENING -> context.getString(R.string.voice_listening)
-        VoiceState.ERROR ->
-            "⚠ " + content.voiceError.ifEmpty { context.getString(R.string.voice_unavailable) }
-        VoiceState.IDLE -> ""
-    }
+    private fun voiceLabel(content: TopBarContent): String = content.voiceDisplayText(
+        context.getString(R.string.voice_listening),
+        context.getString(R.string.voice_unavailable),
+    )
 
     override fun onKeyDown(keyCode: Int, event: KeyEvent): Boolean {
         when (keyCode) {

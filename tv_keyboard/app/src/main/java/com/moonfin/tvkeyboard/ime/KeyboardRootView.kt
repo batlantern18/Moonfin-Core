@@ -90,6 +90,9 @@ class KeyboardRootView @JvmOverloads constructor(
     private var accentShifted = false
     private var accentLocale = java.util.Locale.getDefault()
 
+    /** Key whose long press opened the strip; its row is the placement anchor. */
+    private var accentSourceKey: android.inputmethodservice.Keyboard.Key? = null
+
     val echoView = EchoView(context).apply {
         layoutParams = FrameLayout.LayoutParams(
             ViewGroup.LayoutParams.MATCH_PARENT,
@@ -215,6 +218,7 @@ class KeyboardRootView @JvmOverloads constructor(
         accentPopup.onSelected = { key ->
             val text = AccentPopup.textFor(key, accentShifted, accentLocale)
             accentPopup.hide()
+            accentSourceKey = null
             requestLayout()
             requestKeyboardFocus()
             if (text != null) {
@@ -225,6 +229,7 @@ class KeyboardRootView @JvmOverloads constructor(
         }
         accentPopup.onCancel = {
             accentPopup.hide()
+            accentSourceKey = null
             requestLayout()
             requestKeyboardFocus()
         }
@@ -336,10 +341,20 @@ class KeyboardRootView @JvmOverloads constructor(
 
         if (accentPopup.isVisible) {
             val popupHeight = accentPopup.measuredHeight
-            val popupTop = (keyboardView.top - popupHeight).coerceAtLeast(paddingTop)
+            // Anchored to the held key's row so the strip covers the row above
+            // it; without a source key it falls back to above the whole grid.
+            val rowTop = accentSourceKey?.let { key ->
+                keyboardView.keyTopForKey(key)?.let { top ->
+                    keyboardView.top + keyboardView.paddingTop + top -
+                        resources.getDimensionPixelSize(R.dimen.keyboard_vertical_gap)
+                }
+            }
+            val popupBottom = (rowTop ?: keyboardView.top)
+                .coerceAtLeast(paddingTop + popupHeight)
+            val popupTop = popupBottom - popupHeight
             accentPopup.layout(
                 paddingLeft, popupTop,
-                paddingLeft + contentWidth, popupTop + popupHeight
+                paddingLeft + contentWidth, popupBottom
             )
         } else {
             accentPopup.layout(paddingLeft, currentTop, paddingLeft, currentTop)
@@ -372,11 +387,18 @@ class KeyboardRootView @JvmOverloads constructor(
 
     val isClipboardOverlayVisible: Boolean get() = clipboardOverlay.isVisible
 
-    fun showAccentPopup(resId: Int, shifted: Boolean, locale: java.util.Locale) {
+    fun showAccentPopup(
+        resId: Int,
+        shifted: Boolean,
+        locale: java.util.Locale,
+        sourceKey: android.inputmethodservice.Keyboard.Key? = null,
+    ) {
         accentShifted = shifted
         accentLocale = locale
+        accentSourceKey = sourceKey
         accentPopup.palette = palette
         accentPopup.cyclic = cyclicNavigation
+        accentPopup.baseHighlighted = AccentPopup.isAccentBearing(resId)
         accentPopup.rtl = rtl
         accentPopup.describeKey = { key ->
             AccentPopup.textFor(key, accentShifted, accentLocale) ?: key.label?.toString().orEmpty()
@@ -388,6 +410,7 @@ class KeyboardRootView @JvmOverloads constructor(
     fun dismissAccentPopup() {
         if (accentPopup.isVisible) {
             accentPopup.hide()
+            accentSourceKey = null
             requestLayout()
             requestKeyboardFocus()
         }
@@ -412,14 +435,14 @@ class KeyboardRootView @JvmOverloads constructor(
         keyboardView.accentHints = state.fieldMode != FieldMode.PASSWORD
         keyboardView.spaceBarLanguageName = state.locale.displayLanguage
         topBar.content = state.topBar
-        if (state.actionLabel.isNotEmpty()) {
-            showActionButton(state.actionLabel)
-        } else {
-            hideActionButton()
-        }
+
+        // Derive the action affordance from the editor action ID, not from Field mode.
+        val affordance = ActionAffordance.affordanceFor(state.session.actionId)
+        showActionButton(affordance)
     }
 
-    fun showActionButton(label: String) {
+    /** Show the action button with the given affordance. */
+    fun showActionButton(affordance: ActionAffordance.Affordance) {
         if (actionButton == null) {
             actionButton = ActionButton(context).apply {
                 layoutParams = FrameLayout.LayoutParams(
@@ -445,7 +468,8 @@ class KeyboardRootView @JvmOverloads constructor(
                 addView(this)
             }
         }
-        actionButton!!.label = label
+        actionButton!!.label = affordance.label
+        actionButton!!.contentDescription = affordance.contentDescription
         actionButton!!.palette = palette
         actionButton!!.visibility = View.VISIBLE
         requestLayout()
@@ -461,10 +485,45 @@ class KeyboardRootView @JvmOverloads constructor(
         keyboardView.requestFocus()
     }
 
+    /**
+     * Hand D-pad focus to the primary action key once dictation is committed.
+     * A hidden action leaves focus on the keys rather than on an invisible view.
+     */
+    fun requestActionFocus() {
+        val button = actionButton
+        if (button != null && button.visibility == View.VISIBLE) {
+            currentZone = FocusZone.ACTION
+            button.requestFocus()
+        } else {
+            requestKeyboardFocus()
+        }
+    }
+
     fun requestTopBarFocus() {
         if (topBar.content.visible) {
             currentZone = FocusZone.TOP_BAR
             topBar.requestFocus()
+        }
+    }
+
+    /**
+     * While the accent strip is held open it owns every D-pad event, including
+     * the release of the center key that commits the highlighted variant. The
+     * long press may have moved focus to another child, so route here rather
+     * than relying on the current focus owner.
+     */
+    override fun dispatchKeyEvent(event: KeyEvent): Boolean {
+        if (!accentPopup.isVisible) return super.dispatchKeyEvent(event)
+        return when (event.action) {
+            KeyEvent.ACTION_DOWN -> {
+                accentPopup.onKeyDown(event.keyCode, event)
+                true
+            }
+            KeyEvent.ACTION_UP -> {
+                accentPopup.onKeyUp(event.keyCode, event)
+                true
+            }
+            else -> true
         }
     }
 
@@ -617,6 +676,44 @@ class ActionButton @JvmOverloads constructor(
                 path.lineTo(cx - side * 0.05f, cy + side * 0.17f)
                 path.lineTo(cx + side * 0.24f, cy - side * 0.17f)
                 canvas.drawPath(path, checkPaint)
+            }
+            "Search" -> {
+                // Search reads as a magnifying glass icon.
+                checkPaint.color = palette.accentText
+                val side = minOf(rect.width(), rect.height())
+                checkPaint.strokeWidth = (side * 0.10f).coerceAtLeast(3f)
+                val cx = rect.centerX()
+                val cy = rect.centerY()
+                val path = android.graphics.Path()
+                // outer circle
+                path.addCircle(cx, cy, side * 0.28f, android.graphics.Path.Direction.CW)
+                // inner circle cut
+                path.addCircle(cx, cy, side * 0.18f, android.graphics.Path.Direction.CCW)
+                // handle
+                path.moveTo(cx, cy + side * 0.28f)
+                path.lineTo(cx - side * 0.15f, cy + side * 0.42f)
+                path.lineTo(cx + side * 0.15f, cy + side * 0.42f)
+                canvas.drawPath(path, checkPaint)
+            }
+            "Next" -> {
+                // Next reads as a right arrow.
+                checkPaint.color = palette.accentText
+                val side = minOf(rect.width(), rect.height())
+                checkPaint.strokeWidth = (side * 0.12f).coerceAtLeast(3f)
+                val cx = rect.centerX()
+                val cy = rect.centerY()
+                val path = android.graphics.Path()
+                path.moveTo(cx - side * 0.25f, cy - side * 0.15f)
+                path.lineTo(cx - side * 0.10f, cy)
+                path.lineTo(cx + side * 0.25f, cy - side * 0.15f)
+                canvas.drawPath(path, checkPaint)
+            }
+            "Go" -> {
+                // Go reads as the label "Go".
+                textPaint.color = palette.accentText
+                textPaint.textSize = (16 * density).coerceAtLeast(12f)
+                val baseline = rect.centerY() - (textPaint.descent() + textPaint.ascent()) / 2f
+                canvas.drawText(label, rect.centerX(), baseline, textPaint)
             }
             else -> if (label.isNotEmpty()) {
                 textPaint.color = palette.accentText
