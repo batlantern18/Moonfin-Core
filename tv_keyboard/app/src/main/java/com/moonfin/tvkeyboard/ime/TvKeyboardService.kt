@@ -62,6 +62,11 @@ class TvKeyboardService : InputMethodService(), KeyboardRootView.Listener, Keybo
             connection = { currentInputConnection },
             autoSpace = { preferences.autoSpace },
             onChanged = { requestRender() },
+            onTextCommitted = { text ->
+                if (FieldMode.from(session.inputType) == FieldMode.EMAIL && text.contains("@")) {
+                    preferences.addSavedEmail(text)
+                }
+            },
         )
         renderCoalescer = RenderCoalescer(
             scheduler = { block ->
@@ -301,7 +306,12 @@ class TvKeyboardService : InputMethodService(), KeyboardRootView.Listener, Keybo
 
     override fun onSuggestionSelected(suggestion: Suggestion, index: Int) {
         editor.applySuggestion(suggestion)
-        rootView?.requestKeyboardFocus()
+        // Email completions move focus to the action button
+        if (FieldMode.from(session.inputType) == FieldMode.EMAIL) {
+            rootView?.requestActionFocus()
+        } else {
+            rootView?.requestKeyboardFocus()
+        }
     }
 
     private fun renderNow() {
@@ -329,10 +339,13 @@ class TvKeyboardService : InputMethodService(), KeyboardRootView.Listener, Keybo
     private fun currentSuggestions(): List<Suggestion> {
         val textBeforeCursor = editor.textBeforeCursor(SuggestionEngine.MAX_PREFIX_LOOKBEHIND)
         val mode = suggestionEngine.modeFor(session.inputType)
+        val domains = mutableListOf<String>()
+        domains.addAll(preferences.savedEmails)
+        domains.addAll(commonEmailDomains)
         return suggestionEngine.suggestions(
             textBeforeCursor = textBeforeCursor,
             mode = mode,
-            domains = commonEmailDomains,
+            domains = domains,
             limit = SuggestionEngine.MAX_SUGGESTIONS,
         )
     }

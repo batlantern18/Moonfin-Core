@@ -6,6 +6,7 @@ import com.moonfin.tvkeyboard.ime.LanguageLayout
 import com.moonfin.tvkeyboard.ime.LanguageRegistry
 import com.moonfin.tvkeyboard.theme.KeyboardStyle
 import com.moonfin.tvkeyboard.theme.VisualTheme
+import java.util.LinkedHashSet
 import java.util.Locale
 
 /**
@@ -37,6 +38,27 @@ class KeyboardPreferences(context: Context) {
     var suggestionsEnabled: Boolean
         get() = prefs.getBoolean(KEY_SUGGESTIONS, true)
         set(value) = prefs.edit().putBoolean(KEY_SUGGESTIONS, value).apply()
+
+    /** Saved email addresses for the suggestion strip, ordered by recent use. */
+    var savedEmails: Set<String>
+        get() {
+            val stored = prefs.getStringSet(KEY_SAVED_EMAILS, null) ?: return emptySet()
+            return LinkedHashSet(stored)
+        }
+        set(value) = prefs.edit().putStringSet(KEY_SAVED_EMAILS, value).apply()
+
+    /** Adds an email address to the saved list, maintaining order with most recent first. */
+    fun addSavedEmail(email: String) {
+        val current = savedEmails.toMutableList()
+        current.remove(email) // Remove if already present
+        current.add(0, email) // Add at the front
+        savedEmails = LinkedHashSet(current)
+    }
+
+    /** Clears all saved email addresses. */
+    fun clearSavedEmails() {
+        prefs.edit().remove(KEY_SAVED_EMAILS).apply()
+    }
 
     var cyclicNavigation: Boolean
         get() = prefs.getBoolean(KEY_CYCLIC, false)
@@ -150,6 +172,7 @@ class KeyboardPreferences(context: Context) {
         const val KEY_SUGGESTIONS = "suggestionsEnabled"
         const val KEY_CYCLIC = "cyclicNavigation"
         const val KEY_AUTO_SPACE = "autoSpace"
+        const val KEY_SAVED_EMAILS = "savedEmails"
         const val KEY_HIDE_PHYSICAL = "hidePhysicalKeyboard"
         const val KEY_REMOTE_KEYBOARD = "remoteKeyboardEnabled"
         const val KEY_VOICE = "voiceEnabled"

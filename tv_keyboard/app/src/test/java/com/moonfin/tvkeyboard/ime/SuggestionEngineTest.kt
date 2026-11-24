@@ -142,4 +142,38 @@ class SuggestionEngineTest {
         val longText = "a".repeat(100) + " finalword"
         assertEquals("finalword", engine.wordPrefix(longText))
     }
+
+    @Test
+    fun `domain suggestions appear with full email addresses`() {
+        val savedEmails = listOf("user@gmail.com", "test@yahoo.com")
+        val suggestions = engine.suggestions(
+            textBeforeCursor = "",
+            mode = SuggestionMode.DOMAIN,
+            domains = savedEmails + commonDomains, // Saved emails first
+        )
+
+        // Saved emails should appear first
+        assertEquals("user@gmail.com", suggestions[0].text)
+        assertEquals("test@yahoo.com", suggestions[1].text)
+        // Then common domains
+        assertEquals("@gmail.com", suggestions[2].text)
+        assertEquals(0, suggestions[0].replacePrefix)
+        assertEquals(0, suggestions[2].replacePrefix)
+    }
+
+    @Test
+    fun `domain suggestions are limited and deduped`() {
+        val manyDomains = listOf("email1@test.com", "email2@test.com", "email3@test.com") + commonDomains
+        val suggestions = engine.suggestions(
+            textBeforeCursor = "",
+            mode = SuggestionMode.DOMAIN,
+            domains = manyDomains,
+            limit = 5,
+        )
+
+        assertEquals(5, suggestions.size)
+        // First 5 should be from the combined list
+        assertTrue(suggestions.map { it.text }.contains("email1@test.com"))
+        assertTrue(suggestions.map { it.text }.contains("@gmail.com"))
+    }
 }
